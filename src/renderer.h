@@ -1,8 +1,10 @@
 #ifndef RENDERER_H
 #define RENDERER_H
 
-void renderText();
+#include <GL/glew.h> // For GLuint
 
-extern const char* textToRender;
+void renderText(GLuint shaderProgramID, const char* text);
+
+// extern const char* textToRender; // Removed
 
 #endif

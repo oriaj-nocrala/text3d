@@ -1,9 +1,19 @@
 #ifndef TESSELLATION_HANDLER_H
 #define TESSELLATION_HANDLER_H
 
-#include "vector_utils.h" // Para OutlineDataC
 #include "tesselator.h"   // Para TESSreal, TESSindex
-#include "freetype_handler.h"
+#include <stddef.h>       // Para size_t
+
+// Definiciones de estructuras movidas/añadidas aquí
+typedef struct {
+    float x, y;
+} Point2D;
+
+typedef struct {
+    Point2D* points;
+    size_t count;
+    size_t capacity;
+} ContourC;
 
 // Estructura para devolver los resultados de la teselación
 typedef struct {
@@ -17,6 +27,6 @@ typedef struct {
 // Función principal para teselar los contornos de un glifo
 // Devuelve una estructura TessellationResult. El llamador es responsable
 // de liberar vertices y elements si no son NULL.
-TessellationResult generateGlyphTessellation(OutlineDataC* outlineData);
+TessellationResult generateGlyphTessellation(ContourC* contours, size_t contourCount);
 
 #endif // TESSELLATION_HANDLER_H

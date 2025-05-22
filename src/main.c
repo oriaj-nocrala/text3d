@@ -3,6 +3,17 @@
 #include <string.h>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
+
+#ifdef UNIT_TESTING
+// If compiling for unit tests, and GLUT_KEY_BACKSPACE is not defined by freeglut.h
+// (which might happen if headers are not found correctly despite CFLAGS),
+// define it manually. freeglut_std.h is where it's usually defined.
+// We ensure main_module.o can compile. The test itself uses 8.
+#ifndef GLUT_KEY_BACKSPACE
+#define GLUT_KEY_BACKSPACE 8
+#endif
+#endif
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
@@ -15,13 +26,39 @@
 // --- Variables Globales ---
 GLuint globalShaderProgramID = 0;
 // Valores predeterminados
-const char* globalTextToRender = "Texto ¡Hola €!"; 
+// const char* globalTextToRender = "Texto ¡Hola €!"; // Original
+char globalTextInputBuffer[256] = "Texto ¡Hola €!"; // Modifiable buffer
+const char* globalTextToRender = globalTextInputBuffer; // Point to the buffer
+
 const char* globalMainFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; // Fuente principal por defecto
 const char* globalEmojiFontPath = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"; // Fuente de emoji por defecto (opcional)
 
 // --- Funciones de GLUT ---
 void display() {
     renderText(globalShaderProgramID, globalTextToRender);
+}
+
+void keyboardCallback(unsigned char key, int x, int y) {
+    size_t len = strlen(globalTextInputBuffer);
+    if (len < sizeof(globalTextInputBuffer) - 1) {
+        globalTextInputBuffer[len] = key;
+        globalTextInputBuffer[len + 1] = '\0';
+        glutPostRedisplay();
+    } else {
+        // Buffer is full, produce a beep
+        printf("\a"); // Standard escape sequence for BEL character
+        fflush(stdout); // Ensure the beep is output immediately
+    }
+}
+
+void specialKeyboardCallback(int key, int x, int y) {
+    if (key == GLUT_KEY_BACKSPACE) {
+        size_t len = strlen(globalTextInputBuffer);
+        if (len > 0) {
+            globalTextInputBuffer[len - 1] = '\0';
+            glutPostRedisplay();
+        }
+    }
 }
 
 void reshape(int width, int height) {
@@ -44,6 +81,7 @@ void cleanup() {
 }
 
 // --- Función Principal ---
+#ifndef UNIT_TESTING // Exclude main function when compiling for unit tests
 int main(int argc, char *argv[]){
     // Inicializa las variables que se usarán con los valores globales predeterminados
     const char* textToRender = globalTextToRender;
@@ -86,7 +124,13 @@ int main(int argc, char *argv[]){
     }
     
     // Asigna el texto final a la variable global que usa display()
-    globalTextToRender = textToRender;
+    // globalTextToRender = textToRender; // Original assignment
+    // Instead, copy to the buffer if different from default
+    if (strcmp(textToRender, globalTextInputBuffer) != 0) {
+        strncpy(globalTextInputBuffer, textToRender, sizeof(globalTextInputBuffer) - 1);
+        globalTextInputBuffer[sizeof(globalTextInputBuffer) - 1] = '\0'; // Ensure null termination
+    }
+
 
     // --- Inicialización de GLUT y OpenGL ---
     glutInit(&argc, argv);
@@ -140,8 +184,13 @@ int main(int argc, char *argv[]){
     glutIdleFunc(idle);
     glutCloseFunc(cleanup);
 
+    // Registrar callbacks de teclado
+    glutKeyboardFunc(keyboardCallback);
+    glutSpecialFunc(specialKeyboardCallback);
+
     printf("Iniciando bucle principal de GLUT...\nMostrando texto: \"%s\"\n", globalTextToRender);
     glutMainLoop();
 
     return 0;
 }
+#endif // UNIT_TESTING

@@ -3,6 +3,17 @@
 #include <string.h>
 #include <GL/glew.h>
 #include <GL/freeglut.h>
+
+#ifdef UNIT_TESTING
+// If compiling for unit tests, and GLUT_KEY_BACKSPACE is not defined by freeglut.h
+// (which might happen if headers are not found correctly despite CFLAGS),
+// define it manually. freeglut_std.h is where it's usually defined.
+// We ensure main_module.o can compile. The test itself uses 8.
+#ifndef GLUT_KEY_BACKSPACE
+#define GLUT_KEY_BACKSPACE 8
+#endif
+#endif
+
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
@@ -11,17 +22,22 @@
 #include "glyph_manager.h"
 #include "opengl_setup.h"
 #include "freetype_handler.h"
+#include "input_handler.h"    // << NUEVO INCLUDE
 
 // --- Variables Globales ---
 GLuint globalShaderProgramID = 0;
 // Valores predeterminados
-const char* globalTextToRender = "Texto ¡Hola €!"; 
+// const char* globalTextToRender = "Texto ¡Hola €!"; // Original
+char globalTextInputBuffer[256] = "Texto ¡Hola €!"; // Modifiable buffer
+const char* globalTextToRender = globalTextInputBuffer; // Point to the buffer
+size_t globalCursorBytePos = 0; // Posición del cursor en BYTES dentro del buffer
+
 const char* globalMainFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; // Fuente principal por defecto
 const char* globalEmojiFontPath = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"; // Fuente de emoji por defecto (opcional)
 
 // --- Funciones de GLUT ---
 void display() {
-    renderText(globalShaderProgramID, globalTextToRender);
+    renderText(globalShaderProgramID, globalTextToRender, globalCursorBytePos);
 }
 
 void reshape(int width, int height) {
@@ -44,6 +60,7 @@ void cleanup() {
 }
 
 // --- Función Principal ---
+#ifndef UNIT_TESTING // Exclude main function when compiling for unit tests
 int main(int argc, char *argv[]){
     // Inicializa las variables que se usarán con los valores globales predeterminados
     const char* textToRender = globalTextToRender;
@@ -86,7 +103,13 @@ int main(int argc, char *argv[]){
     }
     
     // Asigna el texto final a la variable global que usa display()
-    globalTextToRender = textToRender;
+    // globalTextToRender = textToRender; // Original assignment
+    // Instead, copy to the buffer if different from default
+    if (strcmp(textToRender, globalTextInputBuffer) != 0) {
+        strncpy(globalTextInputBuffer, textToRender, sizeof(globalTextInputBuffer) - 1);
+        globalTextInputBuffer[sizeof(globalTextInputBuffer) - 1] = '\0';
+    }
+    globalCursorBytePos = strlen(globalTextInputBuffer); // Inicializar cursor al final
 
     // --- Inicialización de GLUT y OpenGL ---
     glutInit(&argc, argv);
@@ -140,8 +163,13 @@ int main(int argc, char *argv[]){
     glutIdleFunc(idle);
     glutCloseFunc(cleanup);
 
+    // Usar los callbacks del nuevo módulo input_handler
+    glutKeyboardFunc(app_keyboard_callback);
+    glutSpecialFunc(app_special_keyboard_callback);
+
     printf("Iniciando bucle principal de GLUT...\nMostrando texto: \"%s\"\n", globalTextToRender);
     glutMainLoop();
 
     return 0;
 }
+#endif // UNIT_TESTING

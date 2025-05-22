@@ -3,18 +3,17 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-GLuint shaderProgram;
+// GLuint shaderProgram; // Removed global variable
 
 // --- Inicialización OpenGL y Shaders ---
-int initOpenGL() {
+GLuint initOpenGL() { // Return type changed to GLuint
     glewExperimental = GL_TRUE;
     GLenum err = glewInit();
     if (GLEW_OK != err) {
-        fprintf(stderr, "Error inicializando GLEW: %s\n", glewGetErrorString(err));
-        exit(EXIT_FAILURE);
+        fprintf(stderr, "ERROR::OPENGL_SETUP: Error inicializando GLEW: %s\n", glewGetErrorString(err));
+        return 0; // Return 0 on failure
     }
     printf("Usando GLEW %s\n", glewGetString(GLEW_VERSION));
-
     // Cargar y compilar shaders (ahora usamos el nuestro)
     shaderProgram = createShaderProgram("./shaders/vertex_shader.glsl", "./shaders/fragment_shader.glsl"); // O usa el hardcodeado
     if (shaderProgram == 0) {
@@ -28,7 +27,7 @@ int initOpenGL() {
     glEnable(GL_BLEND); // Habilitar blending para posible antialiasing de SDF en el futuro
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f); // Fondo gris
-    return 1;
+    return programID; // Return program ID on success
 }
 
 // Función para leer el contenido completo de un archivo en una cadena
@@ -111,7 +110,7 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        fprintf(stderr, "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
+        fprintf(stderr, "ERROR::OPENGL_SETUP::SHADER::VERTEX::COMPILATION_FAILED\n%s\n", infoLog);
         return 0;
     }
 
@@ -121,7 +120,7 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
     if (!success) {
         glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        fprintf(stderr, "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
+        fprintf(stderr, "ERROR::OPENGL_SETUP::SHADER::FRAGMENT::COMPILATION_FAILED\n%s\n", infoLog);
         glDeleteShader(vertexShader); // Limpiar shader de vértice
         return 0;
     }
@@ -135,7 +134,7 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
         glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
-        fprintf(stderr, "ERROR::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
+        fprintf(stderr, "ERROR::OPENGL_SETUP::SHADER::PROGRAM::LINKING_FAILED\n%s\n", infoLog);
         glDeleteShader(vertexShader);
         glDeleteShader(fragmentShader);
         return 0;
@@ -147,13 +146,12 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
     // --- Fin: Ejemplo Muy Básico Hardcodeado ---
 
     printf("Shaders compilados y linkeados correctamente.\n");
-    return shaderProgram;
+    return shaderProgram; // This is the local variable in createShaderProgram, which is correct.
 }
 
-void cleanupOpenGL(){
-    // Borrar shader (igual que antes)
-    if (shaderProgram != 0) {
-        glDeleteProgram(shaderProgram);
-        shaderProgram = 0;
+void cleanupOpenGL(GLuint programID) { // Parameter added
+    // Borrar shader
+    if (programID != 0) {
+        glDeleteProgram(programID);
     }
 }

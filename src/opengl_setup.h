@@ -3,10 +3,10 @@
 
 #include <GL/glew.h>
 
-int initOpenGL();
+GLuint initOpenGL(); // Return type changed to GLuint
 GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath);
-void cleanupOpenGL();
+void cleanupOpenGL(GLuint programID); // Parameter added
 
-extern GLuint shaderProgram;
+// extern GLuint shaderProgram; // Removed
 
 #endif

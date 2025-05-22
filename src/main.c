@@ -1,5 +1,6 @@
 #include <stdio.h>      // Para printf, fprintf, stderr
 #include <stdlib.h>     // Para malloc, realloc, free, exit
+#include <string.h>     // Para strlen
 #include <math.h>       // Para cos, sin, etc. (si usas matrices)
 #include <GL/glew.h>      // Incluir GLEW ANTES de GLUT
 #include <GL/freeglut.h>  // Usaremos FreeGLUT
@@ -13,8 +14,14 @@
 #include "opengl_setup.h"
 #include "freetype_handler.h"
 
+// Global variables for shader program ID and text to render
+// These will be initialized in main() and used by callbacks.
+GLuint globalShaderProgramID = 0;
+const char* globalTextToRender = NULL; // Renamed to avoid conflict with local textToRender in main
+
 void display() {
-    renderText();
+    // Pass the global shader program ID and text to renderText
+    renderText(globalShaderProgramID, globalTextToRender);
 }
 
 // --- Función Reshape (Ejemplo básico) ---
@@ -39,11 +46,14 @@ void cleanup() {
     printf("Limpiando...\n");
 
     cleanupGlyphCache();
-    cleanupOpenGL();
+    if (globalShaderProgramID != 0) { // Only cleanup if successfully initialized
+        cleanupOpenGL(globalShaderProgramID);
+    }
     cleanupFreeType();
 }
 
 int main(int argc, char *argv[]){ // <--- Firma correcta
+    const char* textToRenderFromArg = "Default Text"; // Default text
 
     const char* mainFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; // O la que uses
     const char* emojiFontPath = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"; // EJEMPLO, cambia esta ruta o pon NULL
@@ -51,12 +61,17 @@ int main(int argc, char *argv[]){ // <--- Firma correcta
 
     if(argc == 2){
         if(strlen(argv[1]) > 0) {
-            textToRender = argv[1];
+            textToRenderFromArg = argv[1];
+        } else {
+            fprintf(stderr, "ADVERTENCIA::MAIN: Argumento de texto proporcionado está vacío. Usando texto por defecto.\n");
         }
+    } else if (argc > 2) {
+        fprintf(stderr, "ADVERTENCIA::MAIN: Demasiados argumentos. Se esperaba un solo argumento de texto. Usando el primero.\n");
+        textToRenderFromArg = argv[1];
     } else {
-        fprintf(stderr, "Argumentos incorrectos o no se proporcionó argumento.\n");
-        return 1;
+        fprintf(stderr, "INFO::MAIN: No se proporcionó argumento de texto. Usando texto por defecto.\n");
     }
+    globalTextToRender = textToRenderFromArg; // Assign to the global variable
 
     // Inicializar FreeGLUT
     glutInit(&argc, argv);
@@ -77,6 +92,7 @@ int main(int argc, char *argv[]){ // <--- Firma correcta
         return 1;
     }
     if (!initGlyphCache()) return 1; // Llena el caché
+
 
     // Registrar Callbacks de GLUT
     glutDisplayFunc(display);

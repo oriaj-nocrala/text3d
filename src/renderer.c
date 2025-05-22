@@ -5,12 +5,12 @@
 #include <GL/freeglut.h>  // Usaremos FreeGLUT
 #include "utils.h" // Para utf8_to_codepoint
 
-const char* textToRender;
+// const char* textToRender; // Removed global variable
 
 // --- Función de Dibujo (Modificada para el glifo) ---
-void renderText() {
+void renderText(GLuint shaderProgramID, const char* text) { // Parameters added
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    glUseProgram(shaderProgram);
+    glUseProgram(shaderProgramID); // Use passed shaderProgramID
 
     if (textToRender == NULL) {
         // fprintf(stderr, "Advertencia: textToRender es NULL en renderText().\n");

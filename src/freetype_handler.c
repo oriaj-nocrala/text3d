@@ -110,29 +110,6 @@ void freeOutlineData(OutlineDataC* data) {
     }
 }
 
-/*
-// La función decomposeGlyphOutline ya no es necesaria con el caché dinámico
-// y causaba errores de enlace porque usaba el antiguo `glyphCache`.
-void decomposeGlyphOutline() {
-    // Esta función estaba diseñada para pre-llenar un caché estático (glyphCache).
-    // Con el nuevo sistema de tabla hash dinámica en glyph_manager,
-    // los glifos se generan y cachean bajo demanda.
-    // Por lo tanto, esta función ya no es necesaria y se comenta/elimina.
-
-    // printf("Generando caché de glifos (ASCII 32-126)...\n");
-    // // Inicializar todo a 0 por si acaso
-    // memset(glyphCache, 0, sizeof(glyphCache)); // glyphCache ya no existe
-    // for (int c = 32; c < 127; ++c) { // Rango de caracteres ASCII imprimibles
-    //     glyphCache[c] = getGlyphInfo((char)c); // getGlyphInfo ahora toma FT_ULong y usa la tabla hash
-    //     if (glyphCache[c].vao == 0 && c != ' ') { 
-    //          fprintf(stderr, "Advertencia: No se pudo generar geometría para el carácter '%c' (ASCII %d)\n", (char)c, c);
-    //     }
-    // }
-    // printf("Caché de glifos generado.\n");
-    printf("Nota: decomposeGlyphOutline() ya no está en uso debido al caché dinámico.\n");
-}
-*/
-
 void cleanupFreeType() {
     if (ftEmojiFace) {
         FT_Done_Face(ftEmojiFace);

@@ -2,24 +2,33 @@
 #define GLYPH_MANAGER_H
 
 #include <GL/glew.h> // Para GLuint, GLsizei
+#include <ft2build.h> // For FT_ULong
+#include FT_FREETYPE_H
 
-#define CACHE_SIZE 128
+#define HASH_TABLE_SIZE 256 // Size of the hash table, can be adjusted
 
-// ¡NUEVO! Estructura para almacenar la geometría y métricas de un glifo cacheado
 typedef struct {
     GLuint vao;
     GLuint vbo;
     GLuint ebo;
     GLsizei indexCount;
-    float advanceX;   // Avance horizontal en unidades (después de dividir / 64.0)
-    // Podrías añadir más métricas si las necesitas (ej: tamaño, bearing)
+    float advanceX;
+    // Add other metrics if needed (bearingX, bearingY, glyphWidth, glyphHeight)
 } GlyphInfo;
 
-extern GlyphInfo glyphCache[CACHE_SIZE]; // Declaración extern
+// Node for the hash table (linked list for collision resolution)
+typedef struct GlyphCacheNode {
+    FT_ULong char_code;          // Unicode codepoint
+    GlyphInfo glyph_info;        // Rendered glyph data
+    struct GlyphCacheNode* next; // Pointer to the next node in case of collision
+} GlyphCacheNode;
 
-// GlyphInfo createGlyphGeometry(FT_Face face, char character);
-int initGlyphCache();
-GlyphInfo getGlyphInfo(char c);
+// The hash table itself (array of pointers to GlyphCacheNode)
+// Defined in glyph_manager.c
+extern GlyphCacheNode* glyphHashTable[HASH_TABLE_SIZE];
+
+int initGlyphCache(); // Returns 0 for success, non-zero for failure
+GlyphInfo getGlyphInfo(FT_ULong char_code); // Takes Unicode codepoint
 void cleanupGlyphCache();
 
-#endif
+#endif // GLYPH_MANAGER_H

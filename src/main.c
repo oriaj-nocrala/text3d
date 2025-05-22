@@ -1,104 +1,132 @@
-#include <stdio.h>      // Para printf, fprintf, stderr
-#include <stdlib.h>     // Para malloc, realloc, free, exit
-#include <string.h>     // Para strlen
-#include <math.h>       // Para cos, sin, etc. (si usas matrices)
-#include <GL/glew.h>      // Incluir GLEW ANTES de GLUT
-#include <GL/freeglut.h>  // Usaremos FreeGLUT
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <GL/glew.h>
+#include <GL/freeglut.h>
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include FT_OUTLINE_H
-#include "tesselator.h" // <--- ¡IMPORTANTE! Incluir cabecera de libtess2
 
 #include "renderer.h"
 #include "glyph_manager.h"
 #include "opengl_setup.h"
 #include "freetype_handler.h"
 
-// Global variables for shader program ID and text to render
-// These will be initialized in main() and used by callbacks.
+// --- Variables Globales ---
 GLuint globalShaderProgramID = 0;
-const char* globalTextToRender = NULL; // Renamed to avoid conflict with local textToRender in main
+// Valores predeterminados
+const char* globalTextToRender = "Texto ¡Hola €!"; 
+const char* globalMainFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; // Fuente principal por defecto
+const char* globalEmojiFontPath = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"; // Fuente de emoji por defecto (opcional)
 
+// --- Funciones de GLUT ---
 void display() {
-    // Pass the global shader program ID and text to renderText
     renderText(globalShaderProgramID, globalTextToRender);
 }
 
-// --- Función Reshape (Ejemplo básico) ---
 void reshape(int width, int height) {
-    if (height == 0) height = 1; // Evitar división por cero
+    if (height == 0) height = 1;
     glViewport(0, 0, width, height);
-    // Aquí podrías recalcular una matriz de proyección si la usaras
-    // Para la matriz simple en display(), no es estrictamente necesario
-    // Pero si usas glm_ortho o glm_perspective, actualízala aquí.
-    // printf("Ventana redimensionada a: %d x %d\n", width, height);
 }
 
-// --- Función Idle (Ejemplo básico) ---
 void idle() {
-    // Aquí podrías poner lógica de animación o actualizaciones
-    // glutPostRedisplay(); // Llama a display() de nuevo si algo cambió
+    // glutPostRedisplay(); // Para animación o redibujado continuo
 }
 
-
-// --- Limpieza ---
 void cleanup() {
     printf("Limpiando...\n");
-
     cleanupGlyphCache();
-    if (globalShaderProgramID != 0) { // Only cleanup if successfully initialized
+    if (globalShaderProgramID != 0) {
         cleanupOpenGL(globalShaderProgramID);
     }
     cleanupFreeType();
+    printf("Limpieza finalizada.\n");
 }
 
-int main(int argc, char *argv[]){ // <--- Firma correcta
-    const char* textToRenderFromArg = "Default Text"; // Default text
+// --- Función Principal ---
+int main(int argc, char *argv[]){
+    // Inicializa las variables que se usarán con los valores globales predeterminados
+    const char* textToRender = globalTextToRender;
+    const char* mainFontPath = globalMainFontPath;
+    const char* emojiFontPath = globalEmojiFontPath;
 
-    if(argc == 2){
-        if(strlen(argv[1]) > 0) {
-            textToRenderFromArg = argv[1];
+    // --- Análisis de Argumentos ---
+    // Uso esperado: ./programa ["texto"] [ruta_fuente_principal] [ruta_fuente_emoji]
+    if (argc >= 2) { // Al menos se proporciona el texto
+        if (strlen(argv[1]) > 0) {
+            textToRender = argv[1];
         } else {
-            fprintf(stderr, "ADVERTENCIA::MAIN: Argumento de texto proporcionado está vacío. Usando texto por defecto.\n");
+            fprintf(stderr, "ADVERTENCIA::MAIN: El argumento de texto está vacío. Usando texto por defecto.\n");
         }
-    } else if (argc > 2) {
-        fprintf(stderr, "ADVERTENCIA::MAIN: Demasiados argumentos. Se esperaba un solo argumento de texto. Usando el primero.\n");
-        textToRenderFromArg = argv[1];
     } else {
-        fprintf(stderr, "INFO::MAIN: No se proporcionó argumento de texto. Usando texto por defecto.\n");
+        fprintf(stderr, "INFO::MAIN: No se proporcionó argumento de texto. Usando texto por defecto: \"%s\"\n", textToRender);
     }
-    globalTextToRender = textToRenderFromArg; // Assign to the global variable
 
-    // Inicializar FreeGLUT
+    if (argc >= 3) { // Se proporciona la fuente principal
+        if (strlen(argv[2]) > 0) {
+            mainFontPath = argv[2];
+        } else {
+             fprintf(stderr, "ADVERTENCIA::MAIN: La ruta de la fuente principal está vacía. Usando fuente por defecto: \"%s\"\n", mainFontPath);
+        }
+    } else if (argc > 1) { // Solo se dio texto, no fuentes
+         fprintf(stderr, "INFO::MAIN: No se proporcionó ruta para la fuente principal. Usando fuente por defecto: \"%s\"\n", mainFontPath);
+    }
+
+
+    if (argc >= 4) { // Se proporciona la fuente de emoji
+        if (strlen(argv[3]) > 0) {
+            emojiFontPath = argv[3];
+        } else {
+            fprintf(stderr, "ADVERTENCIA::MAIN: La ruta de la fuente de emoji está vacía. No se usará fuente de emoji de fallback o se usará la predeterminada si está configurada.\n");
+            // Si quieres desactivar el emoji por completo si la ruta es vacía:
+            // emojiFontPath = NULL; 
+        }
+    } else if (argc > 1) { // No se dio fuente de emoji
+         fprintf(stderr, "INFO::MAIN: No se proporcionó ruta para la fuente de emoji. Usando fuente de emoji por defecto (si está configurada): \"%s\"\n", emojiFontPath ? emojiFontPath : "Ninguna");
+    }
+    
+    // Asigna el texto final a la variable global que usa display()
+    globalTextToRender = textToRender;
+
+    // --- Inicialización de GLUT y OpenGL ---
     glutInit(&argc, argv);
     glutInitContextVersion(3, 3);
     glutInitContextProfile(GLUT_CORE_PROFILE);
     glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_DEPTH | GLUT_MULTISAMPLE);
     glutInitWindowSize(800, 600);
     glutInitWindowPosition(100, 100);
-    glutCreateWindow("FreeType + libtess2 + OpenGL");
+    glutCreateWindow("FreeType + libtess2 + OpenGL (UTF-8)");
 
-    // Inicializar GLEW y nuestro setup (Shaders, estado GL)
-    // ¡Debe hacerse DESPUÉS de crear la ventana y el contexto!
-    globalShaderProgramID = initOpenGL(); // Assign to global
+    globalShaderProgramID = initOpenGL();
     if (globalShaderProgramID == 0) {
-        fprintf(stderr, "ERROR::MAIN: Fallo al inicializar OpenGL (shaderProgramID es 0). Saliendo.\n");
-        // No llamar a cleanupOpenGL aquí ya que falló la inicialización del shader.
+        fprintf(stderr, "ERROR::MAIN: Fallo al inicializar OpenGL. Saliendo.\n");
         return 1;
     }
+
+    // --- Inicialización de FreeType y Carga de Fuentes ---
     if (initFreeType() != 0) {
         fprintf(stderr, "ERROR::MAIN: Fallo al inicializar FreeType. Saliendo.\n");
-        cleanupOpenGL(globalShaderProgramID); // OpenGL se inicializó, así que se puede limpiar.
+        cleanupOpenGL(globalShaderProgramID);
         return 1;
     }
-    // Usar una ruta de fuente definida, o mejor aún, configurable.
-    const char* fontPath = "/usr/share/fonts/TTF/DejaVuSans.ttf"; 
-    if (loadFont(fontPath) != 0) {
-        fprintf(stderr, "ERROR::MAIN: Fallo al cargar la fuente '%s'. Saliendo.\n", fontPath);
+
+    printf("INFO::MAIN: Cargando fuente principal desde: \"%s\"\n", mainFontPath);
+    if (emojiFontPath && strlen(emojiFontPath) > 0) {
+        printf("INFO::MAIN: Cargando fuente de emoji desde: \"%s\"\n", emojiFontPath);
+    } else {
+        printf("INFO::MAIN: No se cargará fuente de emoji.\n");
+    }
+
+    if (loadFonts(mainFontPath, (emojiFontPath && strlen(emojiFontPath) > 0) ? emojiFontPath : NULL) != 0) {
+        fprintf(stderr, "ERROR::MAIN: Fallo al cargar fuentes. Asegúrate que las rutas son correctas y las fuentes son válidas.\n");
+        fprintf(stderr, "Ruta principal intentada: %s\n", mainFontPath);
+        if (emojiFontPath && strlen(emojiFontPath) > 0) fprintf(stderr, "Ruta emoji intentada: %s\n", emojiFontPath);
         cleanupFreeType();
         cleanupOpenGL(globalShaderProgramID);
         return 1;
     }
+
+    // --- Inicialización del Caché de Glifos ---
     if (initGlyphCache() != 0) {
         fprintf(stderr, "ERROR::MAIN: Fallo al inicializar el caché de glifos. Saliendo.\n");
         cleanupFreeType();
@@ -106,16 +134,14 @@ int main(int argc, char *argv[]){ // <--- Firma correcta
         return 1;
     }
 
-    // Registrar Callbacks de GLUT
+    // --- Registrar Callbacks y Bucle Principal ---
     glutDisplayFunc(display);
-    glutReshapeFunc(reshape); // <--- Añadida función reshape
-    glutIdleFunc(idle);       // <--- Añadida función idle
+    glutReshapeFunc(reshape);
+    glutIdleFunc(idle);
     glutCloseFunc(cleanup);
 
-    printf("Iniciando bucle principal de GLUT...\n");
-    glutMainLoop(); // Iniciar bucle de eventos
+    printf("Iniciando bucle principal de GLUT...\nMostrando texto: \"%s\"\n", globalTextToRender);
+    glutMainLoop();
 
-    // cleanup() se llama automáticamente al cerrar la ventana via glutCloseFunc
-
-    return 0; // No debería alcanzarse normalmente
+    return 0;
 }

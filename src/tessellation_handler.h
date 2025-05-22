@@ -3,6 +3,12 @@
 
 #include "tesselator.h"   // Para TESSreal, TESSindex
 #include <stddef.h>       // Para size_t
+// Forward declare OutlineDataC if freetype_handler.h isn't included,
+// or include freetype_handler.h if it's safe from circular dependencies.
+// For simplicity, assuming freetype_handler.h can be included or OutlineDataC is defined elsewhere.
+// #include "freetype_handler.h" // Might be needed if OutlineDataC is complex
+struct OutlineDataC; // Forward declaration
+
 
 // Definiciones de estructuras movidas/añadidas aquí
 typedef struct {
@@ -27,6 +33,8 @@ typedef struct {
 // Función principal para teselar los contornos de un glifo
 // Devuelve una estructura TessellationResult. El llamador es responsable
 // de liberar vertices y elements si no son NULL.
-TessellationResult generateGlyphTessellation(ContourC* contours, size_t contourCount);
+// MODIFIED: Takes OutlineDataC* now
+TessellationResult generateGlyphTessellation(struct OutlineDataC* outlineData);
+
 
 #endif // TESSELLATION_HANDLER_H

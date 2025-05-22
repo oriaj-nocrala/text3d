@@ -48,4 +48,30 @@ void cleanupFreeType() {
     printf("Limpieza completa.\n");
 }
 
+// --- Font Property Getters ---
+
+const char* getFontFamilyName() {
+    if (!ftFace) {
+        fprintf(stderr, "ERROR::FREETYPE_HANDLER: ftFace no está cargado. No se puede obtener el nombre de la familia.\n");
+        return NULL;
+    }
+    return ftFace->family_name;
+}
+
+const char* getFontStyleName() {
+    if (!ftFace) {
+        fprintf(stderr, "ERROR::FREETYPE_HANDLER: ftFace no está cargado. No se puede obtener el nombre del estilo.\n");
+        return NULL;
+    }
+    return ftFace->style_name;
+}
+
+long getFontNumGlyphs() {
+    if (!ftFace) {
+        fprintf(stderr, "ERROR::FREETYPE_HANDLER: ftFace no está cargado. No se puede obtener el número de glifos.\n");
+        return -1; // Retornar -1 para indicar error o fuente no cargada
+    }
+    return ftFace->num_glyphs;
+}
+
 // --- Callbacks de FreeType (Usando las estructuras C) ---

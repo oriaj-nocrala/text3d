@@ -45,6 +45,10 @@ void cleanup() {
 
 int main(int argc, char *argv[]){ // <--- Firma correcta
 
+    const char* mainFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; // O la que uses
+    const char* emojiFontPath = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"; // EJEMPLO, cambia esta ruta o pon NULL
+
+
     if(argc == 2){
         if(strlen(argv[1]) > 0) {
             textToRender = argv[1];
@@ -67,7 +71,11 @@ int main(int argc, char *argv[]){ // <--- Firma correcta
     // ¡Debe hacerse DESPUÉS de crear la ventana y el contexto!
     if (!initOpenGL()) return 1;
     if (!initFreeType()) return 1;
-    if (!loadFont("/usr/share/fonts/TTF/DejaVuSans.ttf")) return 1;
+    if (!loadFonts(mainFontPath, emojiFontPath)) { // Llama a la nueva función
+        fprintf(stderr, "Fallo al cargar fuentes.\n");
+        cleanupFreeType(); // Limpiar lo que se haya inicializado
+        return 1;
+    }
     if (!initGlyphCache()) return 1; // Llena el caché
 
     // Registrar Callbacks de GLUT

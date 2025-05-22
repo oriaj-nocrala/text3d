@@ -48,6 +48,7 @@ TEST_MODULE_tessellation_OBJ = $(BUILD_DIR)/tests_obj/tessellation_handler_modul
 TEST_MODULE_glyph_OBJ = $(BUILD_DIR)/tests_obj/glyph_manager_module.o
 TEST_MODULE_utils_OBJ = $(BUILD_DIR)/tests_obj/utils_module.o # Si utils.c también necesitara -DUNIT_TESTING
 TEST_MODULE_main_OBJ = $(BUILD_DIR)/tests_obj/main_module.o # For main.c compiled for tests
+TEST_MODULE_input_OBJ = $(BUILD_DIR)/tests_obj/input_handler_module.o
 # Si utils.c no necesita -DUNIT_TESTING, puedes usar el de la app: $(BUILD_DIR)/app_obj/utils.o
 
 
@@ -108,7 +109,7 @@ $(TEST_GLYPH_EXEC): $(GLYPH_MANAGER_TEST_DEPS) $(STATIC_TESS_LIB) | $(BUILD_DIR)
 	@echo "Ejecutable de test '$@' creado exitosamente."
 
 # Regla para enlazar el test de Text Input
-TEXT_INPUT_TEST_DEPS = $(TEST_TEXT_INPUT_MAIN_OBJ) $(TEST_MODULE_main_OBJ)
+TEXT_INPUT_TEST_DEPS = $(TEST_TEXT_INPUT_MAIN_OBJ) $(TEST_MODULE_main_OBJ) $(TEST_MODULE_input_OBJ)
 $(TEST_TEXT_INPUT_EXEC): $(TEXT_INPUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_DIR_CREATE)
 	@echo "Linking test: $@"
 	$(CC) $(TEXT_INPUT_TEST_DEPS) -o $@ $(LDFLAGS_COMMON) $(LDFLAGS_OPENGL) # LDFLAGS_OPENGL for glutPostRedisplay if not dummied, though dummy is used.

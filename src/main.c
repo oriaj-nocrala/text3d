@@ -22,6 +22,7 @@
 #include "glyph_manager.h"
 #include "opengl_setup.h"
 #include "freetype_handler.h"
+#include "input_handler.h"    // << NUEVO INCLUDE
 
 // --- Variables Globales ---
 GLuint globalShaderProgramID = 0;
@@ -29,36 +30,14 @@ GLuint globalShaderProgramID = 0;
 // const char* globalTextToRender = "Texto ¡Hola €!"; // Original
 char globalTextInputBuffer[256] = "Texto ¡Hola €!"; // Modifiable buffer
 const char* globalTextToRender = globalTextInputBuffer; // Point to the buffer
+size_t globalCursorBytePos = 0; // Posición del cursor en BYTES dentro del buffer
 
 const char* globalMainFontPath = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"; // Fuente principal por defecto
 const char* globalEmojiFontPath = "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf"; // Fuente de emoji por defecto (opcional)
 
 // --- Funciones de GLUT ---
 void display() {
-    renderText(globalShaderProgramID, globalTextToRender);
-}
-
-void keyboardCallback(unsigned char key, int x, int y) {
-    size_t len = strlen(globalTextInputBuffer);
-    if (len < sizeof(globalTextInputBuffer) - 1) {
-        globalTextInputBuffer[len] = key;
-        globalTextInputBuffer[len + 1] = '\0';
-        glutPostRedisplay();
-    } else {
-        // Buffer is full, produce a beep
-        printf("\a"); // Standard escape sequence for BEL character
-        fflush(stdout); // Ensure the beep is output immediately
-    }
-}
-
-void specialKeyboardCallback(int key, int x, int y) {
-    if (key == GLUT_KEY_BACKSPACE) {
-        size_t len = strlen(globalTextInputBuffer);
-        if (len > 0) {
-            globalTextInputBuffer[len - 1] = '\0';
-            glutPostRedisplay();
-        }
-    }
+    renderText(globalShaderProgramID, globalTextToRender, globalCursorBytePos);
 }
 
 void reshape(int width, int height) {
@@ -128,9 +107,9 @@ int main(int argc, char *argv[]){
     // Instead, copy to the buffer if different from default
     if (strcmp(textToRender, globalTextInputBuffer) != 0) {
         strncpy(globalTextInputBuffer, textToRender, sizeof(globalTextInputBuffer) - 1);
-        globalTextInputBuffer[sizeof(globalTextInputBuffer) - 1] = '\0'; // Ensure null termination
+        globalTextInputBuffer[sizeof(globalTextInputBuffer) - 1] = '\0';
     }
-
+    globalCursorBytePos = strlen(globalTextInputBuffer); // Inicializar cursor al final
 
     // --- Inicialización de GLUT y OpenGL ---
     glutInit(&argc, argv);
@@ -184,9 +163,9 @@ int main(int argc, char *argv[]){
     glutIdleFunc(idle);
     glutCloseFunc(cleanup);
 
-    // Registrar callbacks de teclado
-    glutKeyboardFunc(keyboardCallback);
-    glutSpecialFunc(specialKeyboardCallback);
+    // Usar los callbacks del nuevo módulo input_handler
+    glutKeyboardFunc(app_keyboard_callback);
+    glutSpecialFunc(app_special_keyboard_callback);
 
     printf("Iniciando bucle principal de GLUT...\nMostrando texto: \"%s\"\n", globalTextToRender);
     glutMainLoop();

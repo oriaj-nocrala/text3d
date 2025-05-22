@@ -28,7 +28,7 @@
 GLuint globalShaderProgramID = 0;
 // Valores predeterminados
 // const char* globalTextToRender = "Texto ¡Hola €!"; // Original
-char globalTextInputBuffer[256] = "Texto ¡Hola €!"; // Modifiable buffer
+char globalTextInputBuffer[1024] = "Texto ¡Hola €!"; // Modifiable buffer, increased size
 const char* globalTextToRender = globalTextInputBuffer; // Point to the buffer
 size_t globalCursorBytePos = 0; // Posición del cursor en BYTES dentro del buffer
 

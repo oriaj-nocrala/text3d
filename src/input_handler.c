@@ -7,7 +7,7 @@
 
 // --- Variables globales de main.c a las que este módulo necesita acceder ---
 // Estas están definidas en main.c
-extern char globalTextInputBuffer[256];
+extern char globalTextInputBuffer[1024]; // Adjusted to match main.c
 extern size_t globalCursorBytePos;
 
 // --- Variable estática (ámbito de archivo) para este módulo ---

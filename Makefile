@@ -34,13 +34,15 @@ APP_OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/app_obj/%.o,$(APP_SRCS))
 TEST_FREETYPE_SRC = $(TEST_SRC_DIR)/freetype_handler_test.c
 TEST_TESSELLATION_SRC = $(TEST_SRC_DIR)/tessellation_handler_test.c
 TEST_GLYPH_SRC = $(TEST_SRC_DIR)/glyph_manager_test.c
-TEST_TEXT_INPUT_SRC = $(TEST_SRC_DIR)/text_input_test.c # New test source
+TEST_TEXT_INPUT_SRC = $(TEST_SRC_DIR)/text_input_test.c
+TEST_RENDERER_SRC = $(TEST_SRC_DIR)/renderer_test.c # New test source for renderer layout
 
 # Objetos de los archivos _test.c (compilados con TEST_CFLAGS)
 TEST_FREETYPE_MAIN_OBJ = $(BUILD_DIR)/tests_obj/freetype_handler_test.o
 TEST_TESSELLATION_MAIN_OBJ = $(BUILD_DIR)/tests_obj/tessellation_handler_test.o
 TEST_GLYPH_MAIN_OBJ = $(BUILD_DIR)/tests_obj/glyph_manager_test.o
-TEST_TEXT_INPUT_MAIN_OBJ = $(BUILD_DIR)/tests_obj/text_input_test.o # New test main object
+TEST_TEXT_INPUT_MAIN_OBJ = $(BUILD_DIR)/tests_obj/text_input_test.o
+TEST_RENDERER_MAIN_OBJ = $(BUILD_DIR)/tests_obj/renderer_test.o # New test main object for renderer
 
 # Módulos de src/ compilados específicamente para pruebas (con TEST_CFLAGS)
 TEST_MODULE_freetype_OBJ = $(BUILD_DIR)/tests_obj/freetype_handler_module.o # Nombre diferente para evitar colisión con app_obj
@@ -58,7 +60,8 @@ EXEC = texto
 TEST_FREETYPE_EXEC = $(BUILD_DIR)/freetype_test
 TEST_TESSELLATION_EXEC = $(BUILD_DIR)/tessellation_test
 TEST_GLYPH_EXEC = $(BUILD_DIR)/glyph_manager_test
-TEST_TEXT_INPUT_EXEC = $(BUILD_DIR)/text_input_test # New test executable
+TEST_TEXT_INPUT_EXEC = $(BUILD_DIR)/text_input_test
+TEST_RENDERER_EXEC = $(BUILD_DIR)/renderer_test # New test executable for renderer
 
 # Directorios a crear
 APP_OBJ_DIR_CREATE = $(BUILD_DIR)/app_obj
@@ -73,7 +76,7 @@ $(EXEC): $(APP_OBJS) | $(BUILD_DIR) $(APP_OBJ_DIR_CREATE)
 	@echo "Ejecutable '$(EXEC)' creado exitosamente."
 
 # Target para el target de test
-test: $(TEST_FREETYPE_EXEC) $(TEST_TESSELLATION_EXEC) $(TEST_GLYPH_EXEC) $(TEST_TEXT_INPUT_EXEC)
+test: $(TEST_FREETYPE_EXEC) $(TEST_TESSELLATION_EXEC) $(TEST_GLYPH_EXEC) $(TEST_TEXT_INPUT_EXEC) $(TEST_RENDERER_EXEC)
 	@echo "\nRunning FreeType tests..."
 	@./$(TEST_FREETYPE_EXEC)
 	@echo "\nRunning Tessellation tests..."
@@ -82,6 +85,8 @@ test: $(TEST_FREETYPE_EXEC) $(TEST_TESSELLATION_EXEC) $(TEST_GLYPH_EXEC) $(TEST_
 	@./$(TEST_GLYPH_EXEC)
 	@echo "\nRunning Text Input tests..."
 	@./$(TEST_TEXT_INPUT_EXEC)
+	@echo "\nRunning Renderer Layout tests..."
+	@./$(TEST_RENDERER_EXEC)
 	@echo "\nAll tests finished."
 
 # Regla para enlazar el test de FreeType
@@ -115,6 +120,19 @@ $(TEST_TEXT_INPUT_EXEC): $(TEXT_INPUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_DIR_
 	$(CC) $(TEXT_INPUT_TEST_DEPS) -o $@ $(LDFLAGS_COMMON) $(LDFLAGS_OPENGL) # LDFLAGS_OPENGL for glutPostRedisplay if not dummied, though dummy is used.
 	@echo "Ejecutable de test '$@' creado exitosamente."
 
+# Regla para enlazar el test de Renderer Layout
+# Ahora usa _module.o versiones para renderer y utils.
+# glyph_manager, freetype_handler, tessellation_handler (y sus LDFLAGS)
+# no deberían ser necesarios si calculateTextLayout es probado con un mock.
+RENDERER_LAYOUT_TEST_DEPS = $(TEST_RENDERER_MAIN_OBJ) \
+                           $(BUILD_DIR)/tests_obj/renderer_module.o \
+                           $(BUILD_DIR)/tests_obj/utils_module.o
+$(TEST_RENDERER_EXEC): $(RENDERER_LAYOUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_DIR_CREATE)
+	@echo "Linking test: $@"
+	$(CC) $(RENDERER_LAYOUT_TEST_DEPS) -o $@ $(LDFLAGS_COMMON) $(LDFLAGS_FREETYPE) $(LDFLAGS_OPENGL) $(LDFLAGS_TESS) # Retain LDFLAGS for now, can be trimmed if truly not needed by renderer_module.o or utils_module.o
+	@echo "Ejecutable de test '$@' creado exitosamente."
+
+
 # --- Reglas de Compilación ---
 # Regla patrón para compilar archivos .c de SRC_DIR para la APLICACIÓN
 $(BUILD_DIR)/app_obj/%.o: $(SRC_DIR)/%.c | $(APP_OBJ_DIR_CREATE)
@@ -137,7 +155,7 @@ $(BUILD_DIR) $(APP_OBJ_DIR_CREATE) $(TEST_OBJS_DIR_CREATE):
 # Target para limpiar: elimina el directorio BUILD_DIR y los ejecutables
 clean:
 	rm -rf $(BUILD_DIR)
-	rm -f $(EXEC) $(TEST_FREETYPE_EXEC) $(TEST_TESSELLATION_EXEC) $(TEST_GLYPH_EXEC) $(TEST_TEXT_INPUT_EXEC)
+	rm -f $(EXEC) $(TEST_FREETYPE_EXEC) $(TEST_TESSELLATION_EXEC) $(TEST_GLYPH_EXEC) $(TEST_TEXT_INPUT_EXEC) $(TEST_RENDERER_EXEC)
 	@echo "Limpieza completa."
 
 # Targets "phony" que no representan archivos reales

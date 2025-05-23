@@ -89,6 +89,8 @@ GLuint initOpenGL() {
     glEnable(GL_MULTISAMPLE); 
     glEnable(GL_BLEND); 
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f); 
     return programID;
 }

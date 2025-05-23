@@ -23,12 +23,18 @@
 #include "opengl_setup.h"
 #include "freetype_handler.h"
 #include "input_handler.h"    // << NUEVO INCLUDE
+#include "config.h"           // For APP_TEXT_BUFFER_SIZE
 
 // --- Variables Globales ---
 GLuint globalShaderProgramID = 0;
 // Valores predeterminados
 // const char* globalTextToRender = "Texto ¡Hola €!"; // Original
-char globalTextInputBuffer[1024] = "Texto ¡Hola €!"; // Modifiable buffer, increased size
+char globalTextInputBuffer[APP_TEXT_BUFFER_SIZE] =
+#ifdef UNIT_TESTING
+"Test";
+#else
+"Texto ¡Hola €!";
+#endif
 const char* globalTextToRender = globalTextInputBuffer; // Point to the buffer
 size_t globalCursorBytePos = 0; // Posición del cursor en BYTES dentro del buffer
 
@@ -106,10 +112,13 @@ int main(int argc, char *argv[]){
     // globalTextToRender = textToRender; // Original assignment
     // Instead, copy to the buffer if different from default
     if (strcmp(textToRender, globalTextInputBuffer) != 0) {
-        strncpy(globalTextInputBuffer, textToRender, sizeof(globalTextInputBuffer) - 1);
-        globalTextInputBuffer[sizeof(globalTextInputBuffer) - 1] = '\0';
+        strncpy(globalTextInputBuffer, textToRender, APP_TEXT_BUFFER_SIZE - 1);
+        globalTextInputBuffer[APP_TEXT_BUFFER_SIZE - 1] = '\0';
     }
+    #ifndef UNIT_TESTING
     globalCursorBytePos = strlen(globalTextInputBuffer); // Inicializar cursor al final
+    #endif
+    // For UNIT_TESTING, globalCursorBytePos remains 0 or is set by test setup
 
     // --- Inicialización de GLUT y OpenGL ---
     glutInit(&argc, argv);

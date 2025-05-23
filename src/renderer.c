@@ -10,22 +10,43 @@
 
 // Wrapper function to match GetGlyphMetricsFunc signature for real rendering
 MinimalGlyphInfo getGlyphMetrics_wrapper(FT_ULong codepoint) {
+#ifndef UNIT_TESTING
     GlyphInfo real_info = getGlyphInfo(codepoint);
     MinimalGlyphInfo min_info = {0};
-    min_info.advanceX = real_info.advanceX;
-    // Copy other fields if needed by calculateTextLayout or if MinimalGlyphInfo evolves
+
+    // Populate MinimalGlyphInfo from the real GlyphInfo
+    // Only copy fields that exist in GlyphInfo.
     min_info.vao = real_info.vao;
-    min_info.vbo = real_info.vbo;
-    min_info.ebo = real_info.ebo;
-    min_info.textureID = real_info.textureID;
-    min_info.width = real_info.width;
-    min_info.height = real_info.height;
-    min_info.bearingX = real_info.bearingX;
-    min_info.bearingY = real_info.bearingY;
-    min_info.advanceY = real_info.advanceY;
+    // Assuming vbo and ebo are in GlyphInfo and MinimalGlyphInfo:
+    // If GlyphInfo in glyph_manager.h does not have vbo/ebo, remove these lines.
+    // Based on current glyph_manager.h, they *are* present.
+    min_info.vbo = real_info.vbo; 
+    min_info.ebo = real_info.ebo; 
+    min_info.advanceX = real_info.advanceX; 
     min_info.indexCount = real_info.indexCount;
-    min_info.codepoint = real_info.codepoint;
+    
+    // 'codepoint' is not in the GlyphInfo struct.
+    // The 'codepoint' in MinimalGlyphInfo should be filled with the function argument 'codepoint'.
+    min_info.codepoint = codepoint; 
+
+    // Fields like textureID, width, height, bearingX, bearingY, advanceY are NOT in GlyphInfo.
+    // They will remain as 0 or uninitialized in min_info due to the {0} initialization.
+    // calculateTextLayout should primarily rely on advanceX.
+    // If other specific metrics (like bearing, width for precise cursor boxes) are needed 
+    // by calculateTextLayout, then GlyphInfo and this wrapper would need to be extended
+    // to provide them. For now, this is consistent with previous definition of MinimalGlyphInfo.
+
     return min_info;
+#else
+    // This wrapper should ideally not be called by renderer_test, 
+    // as calculateTextLayout is given a mock directly.
+    // If it is called, it indicates a potential issue in test setup or unexpected calls.
+    fprintf(stderr, "UNIT_TESTING_WARNING: getGlyphMetrics_wrapper called in renderer_test context for codepoint %lu\n", codepoint);
+    MinimalGlyphInfo dummy_info = {0}; // Default, zeroed-out info
+    dummy_info.advanceX = 600; // A non-zero default advance if something uses it
+    dummy_info.codepoint = codepoint;
+    return dummy_info;
+#endif
 }
 
 
@@ -89,6 +110,7 @@ TextLayoutInfo calculateTextLayout(
 
 
 void renderText(GLuint shaderProgramID, const char* text, size_t cursorBytePos) {
+#ifndef UNIT_TESTING
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(shaderProgramID);
 
@@ -111,7 +133,7 @@ void renderText(GLuint shaderProgramID, const char* text, size_t cursorBytePos) 
     
     float cursorRenderX = layout.cursor_pos.x;
     float cursorRenderY = layout.cursor_pos.y;
-    FT_ULong codepoint_under_cursor = layout.codepoint_under_cursor;
+    // FT_ULong codepoint_under_cursor = layout.codepoint_under_cursor; // This variable was unused.
     MinimalGlyphInfo glyph_info_minimal_under_cursor = layout.glyph_info_under_cursor;
     // Convert MinimalGlyphInfo to GlyphInfo if needed for rendering character under cursor, or adjust rendering part
     // For now, assuming MinimalGlyphInfo fields are sufficient or identical for rendering
@@ -211,4 +233,12 @@ void renderText(GLuint shaderProgramID, const char* text, size_t cursorBytePos) 
     glBindVertexArray(0);
 
     glutSwapBuffers();
+#else
+    // renderText should not be called in renderer_test context, which tests calculateTextLayout.
+    // If called, it's unexpected.
+    (void)shaderProgramID; // Suppress unused warnings
+    (void)text;
+    (void)cursorBytePos;
+    // fprintf(stderr, "UNIT_TESTING_WARNING: renderText called in renderer_test context.\n");
+#endif
 }

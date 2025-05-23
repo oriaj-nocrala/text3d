@@ -121,12 +121,15 @@ $(TEST_TEXT_INPUT_EXEC): $(TEXT_INPUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_DIR_
 	@echo "Ejecutable de test '$@' creado exitosamente."
 
 # Regla para enlazar el test de Renderer Layout
+# Ahora usa _module.o versiones para renderer y utils.
+# glyph_manager, freetype_handler, tessellation_handler (y sus LDFLAGS)
+# no deberían ser necesarios si calculateTextLayout es probado con un mock.
 RENDERER_LAYOUT_TEST_DEPS = $(TEST_RENDERER_MAIN_OBJ) \
-                           $(BUILD_DIR)/app_obj/renderer.o \
-                           $(BUILD_DIR)/app_obj/utils.o
-$(TEST_RENDERER_EXEC): $(RENDERER_LAYOUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_DIR_CREATE) $(APP_OBJ_DIR_CREATE)
+                           $(BUILD_DIR)/tests_obj/renderer_module.o \
+                           $(BUILD_DIR)/tests_obj/utils_module.o
+$(TEST_RENDERER_EXEC): $(RENDERER_LAYOUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_DIR_CREATE)
 	@echo "Linking test: $@"
-	$(CC) $(RENDERER_LAYOUT_TEST_DEPS) -o $@ $(LDFLAGS_COMMON) -lm # -lm for fabs in test
+	$(CC) $(RENDERER_LAYOUT_TEST_DEPS) -o $@ $(LDFLAGS_COMMON) $(LDFLAGS_FREETYPE) $(LDFLAGS_OPENGL) $(LDFLAGS_TESS) # Retain LDFLAGS for now, can be trimmed if truly not needed by renderer_module.o or utils_module.o
 	@echo "Ejecutable de test '$@' creado exitosamente."
 
 

@@ -1,14 +1,13 @@
 #include "input_handler.h"
 #include "keybindings.h"
+#include "config.h" // For APP_TEXT_BUFFER_SIZE
 
 #include <stdio.h>
 #include <string.h>      // Para strlen, memmove
 #include <GL/freeglut.h> // Para glutPostRedisplay y constantes GLUT_KEY_*
 
-// --- Variables globales de main.c a las que este módulo necesita acceder ---
-// Estas están definidas en main.c
-extern char globalTextInputBuffer[1024]; // Adjusted to match main.c
-extern size_t globalCursorBytePos;
+// globalTextInputBuffer and globalCursorBytePos are now declared in input_handler.h
+// No need for extern declarations here if input_handler.h is included.
 
 // --- Variable estática (ámbito de archivo) para este módulo ---
 static unsigned char pending_dead_key = 0; // 0: ninguna, 180: tilde aguda, 168: diéresis
@@ -197,7 +196,7 @@ void app_keyboard_callback(unsigned char key, int x, int y) {
 
     if (bytes_to_add > 0) {
         size_t text_len = strlen(globalTextInputBuffer);
-        if (text_len + bytes_to_add < sizeof(globalTextInputBuffer)) {
+        if (text_len + bytes_to_add < APP_TEXT_BUFFER_SIZE) {
             if (globalCursorBytePos < text_len) { 
                 memmove(&globalTextInputBuffer[globalCursorBytePos + bytes_to_add],
                         &globalTextInputBuffer[globalCursorBytePos],
@@ -268,7 +267,7 @@ void app_special_keyboard_callback(int key, int x, int y) {
 
         if (dk_bytes > 0) {
             size_t text_len = strlen(globalTextInputBuffer);
-            if (text_len + dk_bytes < sizeof(globalTextInputBuffer)) {
+            if (text_len + dk_bytes < APP_TEXT_BUFFER_SIZE) {
                 if (globalCursorBytePos < text_len) {
                     memmove(&globalTextInputBuffer[globalCursorBytePos + dk_bytes],
                             &globalTextInputBuffer[globalCursorBytePos],

@@ -2,26 +2,24 @@
 #define TEXT_LAYOUT_H
 
 #include <stddef.h> // For size_t
-#include <ft2build.h> // For FT_ULong
+#include <ft2build.h>
+#include FT_FREETYPE_H // Include the main FreeType header for FT_ULong and other types
 // #include "glyph_manager.h" // Avoid direct dependency on full glyph_manager for easier testing
 
 // Forward declaration if GlyphInfo is complex and comes from glyph_manager.h
 // For testing, we might only care about advanceX.
 typedef struct {
     // Minimal info needed for layout testing.
-    // In a real scenario, this might be part of a larger GlyphInfo struct.
-    unsigned int vao; // Keep for compatibility if real GlyphInfo is used by renderer
+    // Matches fields available in GlyphInfo from glyph_manager.h or that can be mocked.
+    unsigned int vao;
     unsigned int vbo;
     unsigned int ebo;
-    unsigned int textureID;
-    int width;
-    int height;
-    int bearingX;
-    int bearingY;
+    // textureID, width, height, bearingX, bearingY, advanceY are not in GlyphInfo
+    // and might not be strictly needed for layout logic itself.
+    // If renderer needs them, it should fetch the full GlyphInfo.
     long advanceX; // Key for layout
-    long advanceY;
     int indexCount;
-    FT_ULong codepoint; // For debugging or complex logic
+    FT_ULong codepoint; // For debugging, or if the GetGlyphMetricsFunc provides it
 } MinimalGlyphInfo;
 
 

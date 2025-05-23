@@ -1,6 +1,7 @@
 #include "glyph_manager.h"
 #include "freetype_handler.h"
 #include "tessellation_handler.h"
+#include "sdf_generator.h" // Added for SDF generation
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -10,6 +11,14 @@
 GlyphCacheNode* glyphHashTable[HASH_TABLE_SIZE];
 
 static GlyphInfo generate_glyph_data_for_codepoint(FT_ULong char_code);
+
+// Helper function to initialize GlyphInfo
+static void init_glyph_info(GlyphInfo* info) {
+    memset(info, 0, sizeof(GlyphInfo));
+    // Specific initializations if 0 is not the desired default for some fields
+    // For example, if sdfTextureID should be a specific "invalid" marker other than 0
+}
+
 
 int initGlyphCache() {
     if (!ftFace) {
@@ -59,7 +68,8 @@ GlyphInfo getGlyphInfo(FT_ULong char_code) {
 }
 
 static GlyphInfo generate_glyph_data_for_codepoint(FT_ULong char_code) {
-    GlyphInfo result = {0}; 
+    GlyphInfo result; 
+    init_glyph_info(&result); // Initialize all fields to 0 or default
     FT_Error ftError;
     FT_Face current_ft_face = ftFace; 
 
@@ -93,7 +103,69 @@ static GlyphInfo generate_glyph_data_for_codepoint(FT_ULong char_code) {
 
     result.advanceX = (float)(current_ft_face->glyph->advance.x) / 64.0f;
 
+    // SDF Generation Attempt
+    if (current_ft_face->glyph->format == FT_GLYPH_FORMAT_OUTLINE) { // SDF typically needs an outline
+        ftError = FT_Render_Glyph(current_ft_face->glyph, FT_RENDER_MODE_NORMAL); // Render to bitmap
+        if (ftError) {
+            fprintf(stderr, "ERROR::GLYPH_MANAGER::GENERATE_GLYPH: FT_Render_Glyph failed for U+%04lX. Error: %d\n", char_code, ftError);
+            // Proceed to mesh generation or return. For now, let mesh generation be the fallback.
+        } else {
+            FT_Bitmap* ft_bitmap = &current_ft_face->glyph->bitmap;
+            if (ft_bitmap->buffer && ft_bitmap->width > 0 && ft_bitmap->rows > 0) {
+                int sdf_padding = 4; // Example padding
+                unsigned char* sdf_data = generate_sdf_from_bitmap(
+                    ft_bitmap->buffer,
+                    ft_bitmap->width,
+                    ft_bitmap->rows,
+                    ft_bitmap->pitch,
+                    sdf_padding,
+                    &result.sdfTextureWidth,
+                    &result.sdfTextureHeight
+                );
+
+                if (sdf_data) {
+#ifndef UNIT_TESTING
+                    // === OpenGL Texture Creation ===
+                    glGenTextures(1, &result.sdfTextureID);
+                    glBindTexture(GL_TEXTURE_2D, result.sdfTextureID);
+                    // Use GL_RED for internal format if the SDF is single channel, GL_R8 is better.
+                    glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, result.sdfTextureWidth, result.sdfTextureHeight, 0, GL_RED, GL_UNSIGNED_BYTE, sdf_data);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+                    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+                    glBindTexture(GL_TEXTURE_2D, 0);
+#else
+                    result.sdfTextureID = 0; // No GL textures in unit tests
+#endif
+                    free_sdf_bitmap(sdf_data);
+                } else {
+                    fprintf(stderr, "WARN::GLYPH_MANAGER::GENERATE_GLYPH: SDF generation failed for U+%04lX.\n", char_code);
+                    result.sdfTextureID = 0; // Ensure fields are zeroed on failure
+                    result.sdfTextureWidth = 0;
+                    result.sdfTextureHeight = 0;
+                }
+            } else {
+                // Bitmap is empty, clear SDF fields
+                result.sdfTextureID = 0;
+                result.sdfTextureWidth = 0;
+                result.sdfTextureHeight = 0;
+            }
+        }
+    } else { // Not an outline glyph, or some other condition preventing SDF generation
+        result.sdfTextureID = 0;
+        result.sdfTextureWidth = 0;
+        result.sdfTextureHeight = 0;
+    }
+
+    // Mesh Generation (Outline based)
+    // This part might be conditional in the future based on SDF success.
+    // For now, it always runs if it's an outline glyph.
     if (current_ft_face->glyph->format != FT_GLYPH_FORMAT_OUTLINE) {
+        // If it's not an outline glyph (e.g. pre-rendered bitmap), 
+        // we might not be able to generate a mesh this way.
+        // Or if it was, but SDF failed and we don't want to proceed with mesh for non-outlines.
+        // For now, if no outline, result (with potentially SDF data if that path changes) is returned.
         return result; 
     }
 
@@ -193,6 +265,9 @@ void cleanupGlyphCache() {
             }
             if (temp->glyph_info.ebo != 0) {
                 glDeleteBuffers(1, &temp->glyph_info.ebo);
+            }
+            if (temp->glyph_info.sdfTextureID != 0) { // Removed comparison with dummy 99
+                glDeleteTextures(1, &temp->glyph_info.sdfTextureID);
             }
 #endif
             free(temp);

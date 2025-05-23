@@ -14,6 +14,11 @@ typedef struct {
     GLsizei indexCount;
     float advanceX;
     // Add other metrics if needed (bearingX, bearingY, glyphWidth, glyphHeight)
+
+    // SDF Texture data
+    GLuint sdfTextureID;
+    int sdfTextureWidth;
+    int sdfTextureHeight;
 } GlyphInfo;
 
 // Node for the hash table (linked list for collision resolution)

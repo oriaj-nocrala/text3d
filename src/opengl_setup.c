@@ -3,6 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+// Define global VAO and VBO
+GLuint globalQuadVAO = 0;
+GLuint globalQuadVBO = 0;
+
 // Helper function to read shader files
 static char* readFileToString(const char* filepath) {
     FILE* file = fopen(filepath, "rb");
@@ -52,6 +56,32 @@ GLuint initOpenGL() {
         fprintf(stderr, "ERROR::OPENGL_SETUP: Fallo al crear el programa de shaders.\n");
         return 0;
     }
+
+    // Quad vertices: posX, posY, texX, texY
+    float quadVertices[] = {
+        // First triangle
+        0.0f, 1.0f, 0.0f, 1.0f, // Top-left
+        0.0f, 0.0f, 0.0f, 0.0f, // Bottom-left
+        1.0f, 1.0f, 1.0f, 1.0f, // Top-right
+        // Second triangle
+        1.0f, 0.0f, 1.0f, 0.0f  // Bottom-right
+    };
+
+    glGenVertexArrays(1, &globalQuadVAO);
+    glGenBuffers(1, &globalQuadVBO);
+    glBindVertexArray(globalQuadVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, globalQuadVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+    
+    // Position attribute (location = 0 in new shader)
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(0);
+    // Texture coordinate attribute (location = 1 in new shader)
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)(2 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+    
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindVertexArray(0);
 
     glEnable(GL_MULTISAMPLE); 
     glEnable(GL_BLEND); 
@@ -130,5 +160,11 @@ GLuint createShaderProgram(const char* vertexPath, const char* fragmentPath) {
 void cleanupOpenGL(GLuint programID) {
     if (programID != 0) {
         glDeleteProgram(programID);
+    }
+    if (globalQuadVAO != 0) {
+        glDeleteVertexArrays(1, &globalQuadVAO);
+    }
+    if (globalQuadVBO != 0) {
+        glDeleteBuffers(1, &globalQuadVBO);
     }
 }

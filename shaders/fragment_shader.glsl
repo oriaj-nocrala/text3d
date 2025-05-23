@@ -21,14 +21,20 @@ uniform vec4 shadowColor;         // << CORREGIDO AQUÍ: de vec3 a vec4
 uniform float shadowSoftnessSDF;   // Suavizado de la sombra en unidades SDF
 
 void main() {
-    float distanceSample = texture(sdfTexture, TexCoords).r;
+    float originalDistanceSample = texture(sdfTexture, TexCoords).r;
+    float distanceSample = 1.0 - originalDistanceSample; // <---- INVERTIR AQUÍ    // --- Opción A: Para usar con fwidth (la que tenías que daba glifos negros sobre amarillo) ---
     float screenPixelRange = fwidth(distanceSample);
     float antialiasWidth = screenPixelRange * smoothingFactor;
-
-    // --- Renderizado Base del Texto (con anti-aliasing) ---
-    float textAlpha = smoothstep(sdfEdgeValue - antialiasWidth, 
-                                 sdfEdgeValue + antialiasWidth, 
+    float textAlpha = smoothstep(sdfEdgeValue - antialiasWidth, // VERSIÓN ORIGINAL DEL SMOOTHSTEP
+                                 sdfEdgeValue + antialiasWidth,
                                  distanceSample);
+
+    // --- Opción B: Para usar con un ancho fijo (la que te dio glifos amarillos correctos) ---
+    // float fixedAntialiasWidth = 0.05; // O el valor que te funcionó bien
+    // float antialiasWidth = fixedAntialiasWidth; // Asignar a antialiasWidth para que el resto del código funcione
+    // float textAlpha = smoothstep(sdfEdgeValue + antialiasWidth, // VERSIÓN CORREGIDA DEL SMOOTHSTEP
+    //                              sdfEdgeValue - antialiasWidth,
+    //                              distanceSample);
 
     vec3 finalColor = textColor;
     float finalAlpha = textAlpha;

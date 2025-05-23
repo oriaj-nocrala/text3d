@@ -15,6 +15,7 @@ unsigned char* generate_sdf_from_bitmap(
     int height, 
     int pitch, // pitch of the mono_bitmap_buffer
     int padding, // padding to add around the glyph for SDF generation
+    float spread,
     int* out_sdf_width, 
     int* out_sdf_height
 );

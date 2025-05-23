@@ -45,7 +45,7 @@ static GlyphInfo generate_glyph_data_for_codepoint(FT_ULong char_code) {
         return result; // result.advanceX será 0.0, etc.
     }
 
-    ftError = FT_Set_Pixel_Sizes(current_ft_face, 0, 192); // 48 
+    ftError = FT_Set_Pixel_Sizes(current_ft_face, 0, 48); // 48 
     if (ftError) {
         fprintf(stderr, "ERROR::GLYPH_MANAGER::GENERATE_GLYPH: FT_Set_Pixel_Sizes falló para U+%04lX. Error: %d\n", char_code, ftError);
         return result; 
@@ -107,20 +107,25 @@ static GlyphInfo generate_glyph_data_for_codepoint(FT_ULong char_code) {
             printf("\n");
         }
 
-        int sdf_padding = 4; 
+        int sdf_padding = 4;
+        float sdf_spread = 2.0f; // Definir el valor para spread 
+
         unsigned char* sdf_data = generate_sdf_from_bitmap(
             ft_bitmap->buffer,
             ft_bitmap->width,
             ft_bitmap->rows,
             ft_bitmap->pitch,
             sdf_padding,
+            sdf_spread,
             &result.sdfTextureWidth,
             &result.sdfTextureHeight
         );
 
         if (sdf_data) {
-        #ifndef UNIT_TESTING
+            #ifndef UNIT_TESTING
             glGenTextures(1, &result.sdfTextureID);
+            printf("INFO::GLYPH_MANAGER: SDF generado OK para U+%04lX: width=%d, height=%d, textureID=%u\n",
+                    char_code, result.sdfTextureWidth, result.sdfTextureHeight, result.sdfTextureID);
             glBindTexture(GL_TEXTURE_2D, result.sdfTextureID);
 
             // === ESTO ARREGLÓ EL PROBLEMA DE LAS LETRAS GARBAGE ===

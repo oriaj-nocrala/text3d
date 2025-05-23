@@ -122,7 +122,7 @@ void renderText(GLuint shaderProgramID, const char* text, size_t cursorBytePos) 
 
     // --- Configuration ---
     float startX = -0.98f;
-    float startY = 0.95f;
+    float startY = 0.83f;
     const float maxLineWidth = 1.96f;
     const float lineHeight = 0.18f;
     float scale = 0.003f;

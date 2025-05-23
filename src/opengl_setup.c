@@ -59,12 +59,15 @@ GLuint initOpenGL() {
 
     // Quad vertices: posX, posY, texX, texY
     float quadVertices[] = {
-        // First triangle
-        0.0f, 1.0f, 0.0f, 1.0f, // Top-left
-        0.0f, 0.0f, 0.0f, 0.0f, // Bottom-left
-        1.0f, 1.0f, 1.0f, 1.0f, // Top-right
-        // Second triangle
-        1.0f, 0.0f, 1.0f, 0.0f  // Bottom-right
+        // Vértice      Posición      Coordenadas de Textura (V invertida)
+        // Superior-Izq  (0,1)         (0,0) <-- V era 1.0f
+        0.0f, 1.0f,  0.0f, 0.0f,
+        // Inferior-Izq  (0,0)         (0,1) <-- V era 0.0f
+        0.0f, 0.0f,  0.0f, 1.0f,
+        // Superior-Der  (1,1)         (1,0) <-- V era 1.0f
+        1.0f, 1.0f,  1.0f, 0.0f,
+        // Inferior-Der  (1,0)         (1,1) <-- V era 0.0f
+        1.0f, 0.0f,  1.0f, 1.0f
     };
 
     glGenVertexArrays(1, &globalQuadVAO);

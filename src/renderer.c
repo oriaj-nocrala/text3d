@@ -112,7 +112,7 @@ void renderText(GLuint shaderProgramID, const char* text, size_t cursorBytePos) 
     const float maxLineWidth = 1.96f;
     const float lineHeight = 0.18f; // Distance to move down for new line
     float scale = 0.003f; // General scaling factor for advanceX
-    float sdf_scale_factor = 0.1f; // Additional scale factor for SDF quad dimensions
+    float sdf_scale_factor = 1.0f; // Additional scale factor for SDF quad dimensions
 
     TextLayoutInfo layout = calculateTextLayout(text, cursorBytePos, startX, startY, scale, maxLineWidth, lineHeight, getGlyphMetrics_wrapper);
     

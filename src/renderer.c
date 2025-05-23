@@ -1,106 +1,74 @@
-// En text3d/src/renderer.c
-// En text3d/src/renderer.c
+// En tu archivo t3d/src/renderer.c
+
 #include "renderer.h"
+#include "opengl_setup.h"  // For globalQuadVAO
 #include "glyph_manager.h" // For actual getGlyphInfo and GlyphInfo struct
 #include "utils.h"         // Para utf8_to_codepoint
 #include "text_layout.h"   // For TextLayoutInfo and calculateTextLayout signature
-#include <stdio.h>
+#include <stdio.h> 
 #include <GL/freeglut.h>
-#include <string.h> // Para strlen
+#include <string.h> 
+#include <math.h>
+#include <stdbool.h>
 
-// Wrapper function to match GetGlyphMetricsFunc signature for real rendering
+// ... (getGlyphMetrics_wrapper y calculateTextLayout sin cambios) ...
 MinimalGlyphInfo getGlyphMetrics_wrapper(FT_ULong codepoint) {
 #ifndef UNIT_TESTING
     GlyphInfo real_info = getGlyphInfo(codepoint);
     MinimalGlyphInfo min_info = {0};
-
-    // Populate MinimalGlyphInfo from the real GlyphInfo
-    // Only copy fields that exist in GlyphInfo.
-    min_info.vao = real_info.vao;
-    // Assuming vbo and ebo are in GlyphInfo and MinimalGlyphInfo:
-    // If GlyphInfo in glyph_manager.h does not have vbo/ebo, remove these lines.
-    // Based on current glyph_manager.h, they *are* present.
-    min_info.vbo = real_info.vbo; 
-    min_info.ebo = real_info.ebo; 
     min_info.advanceX = real_info.advanceX; 
-    min_info.indexCount = real_info.indexCount;
-    
-    // 'codepoint' is not in the GlyphInfo struct.
-    // The 'codepoint' in MinimalGlyphInfo should be filled with the function argument 'codepoint'.
     min_info.codepoint = codepoint; 
-
-    // Fields like textureID, width, height, bearingX, bearingY, advanceY are NOT in GlyphInfo.
-    // They will remain as 0 or uninitialized in min_info due to the {0} initialization.
-    // calculateTextLayout should primarily rely on advanceX.
-    // If other specific metrics (like bearing, width for precise cursor boxes) are needed 
-    // by calculateTextLayout, then GlyphInfo and this wrapper would need to be extended
-    // to provide them. For now, this is consistent with previous definition of MinimalGlyphInfo.
-
     return min_info;
 #else
-    // This wrapper should ideally not be called by renderer_test, 
-    // as calculateTextLayout is given a mock directly.
-    // If it is called, it indicates a potential issue in test setup or unexpected calls.
-    fprintf(stderr, "UNIT_TESTING_WARNING: getGlyphMetrics_wrapper called in renderer_test context for codepoint %lu\n", codepoint);
-    MinimalGlyphInfo dummy_info = {0}; // Default, zeroed-out info
-    dummy_info.advanceX = 600; // A non-zero default advance if something uses it
+    MinimalGlyphInfo dummy_info = {0};
+    dummy_info.advanceX = 50; 
     dummy_info.codepoint = codepoint;
     return dummy_info;
 #endif
 }
 
-
 TextLayoutInfo calculateTextLayout(
-    const char* text,
-    size_t cursorBytePos,
-    float startX,
-    float startY,
-    float scale,
-    float maxLineWidth,
-    float lineHeight,
+    const char* text, size_t cursorBytePos,
+    float startX, float startY, float scale,
+    float maxLineWidth, float lineHeight,
     GetGlyphMetricsFunc get_glyph_metrics) {
 
     TextLayoutInfo layout_info = {0};
     layout_info.cursor_pos.x = startX;
     layout_info.cursor_pos.y = startY;
 
-    if (!text) {
-        return layout_info; // Return default positions if text is NULL
-    }
+    if (!text) return layout_info;
 
     const char* s_iter = text;
     size_t current_byte_iter_offset = 0;
     float simulatedCurrentX = startX;
-    float simulatedCurrentY = startY;
+    float simulatedCurrentY = startY; 
 
     while (*s_iter != '\0') {
         const char* temp_s_ptr = s_iter;
         FT_ULong codepoint_for_check = utf8_to_codepoint(&temp_s_ptr);
+        if (codepoint_for_check == 0) break;
         size_t char_byte_length = temp_s_ptr - s_iter;
 
-        if (codepoint_for_check == 0) break;
+        MinimalGlyphInfo glyph_info_minimal = get_glyph_metrics(codepoint_for_check);
 
-        MinimalGlyphInfo glyph_info = get_glyph_metrics(codepoint_for_check);
-
-        if (simulatedCurrentX + (glyph_info.advanceX * scale) > startX + maxLineWidth) {
+        if (simulatedCurrentX > startX && (simulatedCurrentX + (glyph_info_minimal.advanceX * scale)) > (startX + maxLineWidth)) {
             simulatedCurrentX = startX;
-            simulatedCurrentY -= lineHeight;
+            simulatedCurrentY -= lineHeight; 
         }
 
         if (current_byte_iter_offset == cursorBytePos) {
             layout_info.cursor_pos.x = simulatedCurrentX;
-            layout_info.cursor_pos.y = simulatedCurrentY;
+            layout_info.cursor_pos.y = simulatedCurrentY; 
             layout_info.codepoint_under_cursor = codepoint_for_check;
-            layout_info.glyph_info_under_cursor = glyph_info;
+            layout_info.glyph_info_under_cursor = glyph_info_minimal; 
             layout_info.cursor_is_over_char = 1;
-            // No break here, continue to calculate full text length for end cursor pos if needed
         }
-        simulatedCurrentX += glyph_info.advanceX * scale;
+        simulatedCurrentX += glyph_info_minimal.advanceX * scale;
         s_iter += char_byte_length;
         current_byte_iter_offset += char_byte_length;
     }
 
-    // If cursor is at the end of the text
     if (!layout_info.cursor_is_over_char && cursorBytePos == current_byte_iter_offset) {
         layout_info.cursor_pos.x = simulatedCurrentX;
         layout_info.cursor_pos.y = simulatedCurrentY;
@@ -111,134 +79,212 @@ TextLayoutInfo calculateTextLayout(
 
 void renderText(GLuint shaderProgramID, const char* text, size_t cursorBytePos) {
 #ifndef UNIT_TESTING
+    checkOpenGLError("renderText Start");
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    checkOpenGLError("After glClear");
     glUseProgram(shaderProgramID);
+    checkOpenGLError("After glUseProgram");
+    glBindVertexArray(globalQuadVAO); 
+    checkOpenGLError("After glBindVertexArray globalQuadVAO");
 
     if (!text) {
         fprintf(stderr, "ERROR::RENDERER: El parámetro de texto es NULL.\n");
-        glutSwapBuffers();
+        glBindVertexArray(0); 
+        glutSwapBuffers(); 
         return;
     }
 
-    // --- Configuration ---
+    // --- Configuración de Renderizado ---
     float startX = -0.98f;
-    float startY = 0.83f;
+    float startY = 0.33f; 
     const float maxLineWidth = 1.96f;
-    const float lineHeight = 0.18f;
-    float scale = 0.003f;
+    const float lineHeight = 0.18f; 
+    float scale = 0.003f; 
+    const int sdf_padding = 4; 
 
-    // --- Calculate Layout ---
-    // Use the real getGlyphInfo via wrapper for rendering
     TextLayoutInfo layout = calculateTextLayout(text, cursorBytePos, startX, startY, scale, maxLineWidth, lineHeight, getGlyphMetrics_wrapper);
     
-    float cursorRenderX = layout.cursor_pos.x;
-    float cursorRenderY = layout.cursor_pos.y;
-    // FT_ULong codepoint_under_cursor = layout.codepoint_under_cursor; // This variable was unused.
-    MinimalGlyphInfo glyph_info_minimal_under_cursor = layout.glyph_info_under_cursor;
-    // Convert MinimalGlyphInfo to GlyphInfo if needed for rendering character under cursor, or adjust rendering part
-    // For now, assuming MinimalGlyphInfo fields are sufficient or identical for rendering
-    GlyphInfo glyph_info_under_cursor = {0}; // Reconstruct or map if necessary
-    if (layout.cursor_is_over_char) {
-        // This is a bit of a hack; ideally GlyphInfo and MinimalGlyphInfo would be more aligned
-        // or calculateTextLayout would return the full GlyphInfo if possible (but that couples it more with FreeType details for tests)
-        glyph_info_under_cursor.vao = glyph_info_minimal_under_cursor.vao;
-        glyph_info_under_cursor.indexCount = glyph_info_minimal_under_cursor.indexCount;
-        // ... copy other necessary fields ...
-    }
-
-    int cursor_is_over_char = layout.cursor_is_over_char;
-
-
+    // --- Uniforms Base ---
     GLint transformLoc = glGetUniformLocation(shaderProgramID, "transform");
-    GLint colorLoc = glGetUniformLocation(shaderProgramID, "textColor");
+    GLint colorLoc = glGetUniformLocation(shaderProgramID, "textColor"); // Renombrado de textColor a baseTextColor para claridad
+    GLint sdfTextureSamplerLoc = glGetUniformLocation(shaderProgramID, "sdfTexture"); // Nombre común para el sampler
+    
+    // === INICIO: NUEVOS UNIFORMS PARA EL SHADER SDF "MÁS PRO" ===
+    GLint sdfEdgeValueLoc = glGetUniformLocation(shaderProgramID, "sdfEdgeValue");
+    GLint smoothingFactorLoc = glGetUniformLocation(shaderProgramID, "smoothingFactor");
 
-    if (transformLoc == -1 || colorLoc == -1) {
-        fprintf(stderr, "ERROR::RENDERER: No se pudieron encontrar los uniformes 'transform' o 'textColor'. ShaderProgramID: %u\n", shaderProgramID);
+    // Uniforms para contorno (opcional, obtén sus localizaciones si los vas a usar)
+    GLint enableOutlineLoc = glGetUniformLocation(shaderProgramID, "enableOutline");
+    GLint outlineColorLoc = glGetUniformLocation(shaderProgramID, "outlineColor");
+    GLint outlineWidthSDFLoc = glGetUniformLocation(shaderProgramID, "outlineWidthSDF");
+    GLint outlineEdgeOffsetLoc = glGetUniformLocation(shaderProgramID, "outlineEdgeOffset");
+
+    // Uniforms para sombra (opcional)
+    GLint enableShadowLoc = glGetUniformLocation(shaderProgramID, "enableShadow");
+    GLint shadowColorLoc = glGetUniformLocation(shaderProgramID, "shadowColor");
+    GLint shadowOffsetScreenLoc = glGetUniformLocation(shaderProgramID, "shadowOffsetScreen"); // O shadowOffsetUVLoc
+    GLint shadowSoftnessSDFLoc = glGetUniformLocation(shaderProgramID, "shadowSoftnessSDF");
+    // === FIN: NUEVOS UNIFORMS PARA EL SHADER SDF "MÁS PRO" ===
+
+    if (transformLoc == -1 || colorLoc == -1 || sdfTextureSamplerLoc == -1) {
+        fprintf(stderr, "ERROR::RENDERER: No se pudieron encontrar uniformes base (transform, textColor, o sdfTexture). ShaderID: %u\n", shaderProgramID);
+    }
+     if (sdfEdgeValueLoc == -1 || smoothingFactorLoc == -1) {
+        fprintf(stderr, "ADVERTENCIA::RENDERER: No se pudieron encontrar uniformes SDF (sdfEdgeValue, smoothingFactor). Los efectos SDF pueden no funcionar. ShaderID: %u\n", shaderProgramID);
+    }
+    
+    glUniform1i(sdfTextureSamplerLoc, 0); 
+    glActiveTexture(GL_TEXTURE0);  
+
+    // === INICIO: Establecer valores para los nuevos uniforms SDF ===
+    glUniform1f(sdfEdgeValueLoc, 0.5f); // Correcto para tu sdf_generator
+    glUniform1f(smoothingFactorLoc, 0.7f); // Puedes experimentar con este valor (ej. 0.5 a 1.0 con fwidth)
+
+    // Configuración de efectos (ejemplos, puedes hacer esto configurable)
+    bool G_ENABLE_OUTLINE = false; // Cambia a true para probar contornos
+    bool G_ENABLE_SHADOW = false;  // Cambia a true para probar sombras
+
+    if (enableOutlineLoc != -1) glUniform1i(enableOutlineLoc, G_ENABLE_OUTLINE);
+    if (G_ENABLE_OUTLINE) {
+        if (outlineColorLoc != -1) glUniform3f(outlineColorLoc, 0.0f, 0.0f, 0.0f); // Contorno negro
+        if (outlineWidthSDFLoc != -1) glUniform1f(outlineWidthSDFLoc, 0.03f); // Experimenta
+        if (outlineEdgeOffsetLoc != -1) glUniform1f(outlineEdgeOffsetLoc, 0.01f); // Experimenta
     }
 
-    float mainTextColor[3] = {0.8f, 0.9f, 0.2f};
-    float cursorBackgroundColor[3] = {0.85f, 0.85f, 0.85f};
-    float textOnCursorColor[3] = {0.1f, 0.1f, 0.1f};
+    if (enableShadowLoc != -1) glUniform1i(enableShadowLoc, G_ENABLE_SHADOW);
+    if (G_ENABLE_SHADOW) {
+        if (shadowColorLoc != -1) glUniform4f(shadowColorLoc, 0.0f, 0.0f, 0.0f, 0.5f); // Sombra negra semitransparente
+        // Para shadowOffsetScreen, necesitarías calcularlo o pasar un offset UV
+        // Ejemplo con un offset UV fijo pequeño (tendrías que renombrar el uniform en el shader a "shadowOffsetUV")
+        // if (glGetUniformLocation(shaderProgramID, "shadowOffsetUV") != -1) glUniform2f(glGetUniformLocation(shaderProgramID, "shadowOffsetUV"), 0.002f, -0.002f);
+        if (shadowSoftnessSDFLoc != -1) glUniform1f(shadowSoftnessSDFLoc, 0.1f); // Experimenta
+    }
+    // === FIN: Establecer valores para los nuevos uniforms SDF ===
 
-    glUniform3fv(colorLoc, 1, mainTextColor);
 
-    // --- Actual Rendering Loop ---
+    // --- Renderizado del Texto Principal ---
+    float mainTextColor[3] = {0.8f, 0.9f, 0.2f}; 
+    glUniform3fv(colorLoc, 1, mainTextColor); // colorLoc ahora es el textColor base
+
     const char* s_iter = text;
-    size_t current_byte_iter_offset = 0;
-    float currentX = startX;
-    float currentY = startY;
+    float currentX = startX; 
+    float currentY = startY; 
+    size_t current_byte_render_offset = 0; 
 
+    int char_count_on_line = 0;
     while (*s_iter != '\0') {
-        const char* loop_char_start_ptr = s_iter;
+        const char* char_start_ptr_for_offset = s_iter; 
         FT_ULong current_codepoint = utf8_to_codepoint(&s_iter);
-        size_t char_byte_length = s_iter - loop_char_start_ptr;
+        size_t char_byte_length = s_iter - char_start_ptr_for_offset; 
 
         if (current_codepoint == 0) break;
 
-        // Use the real getGlyphInfo for rendering glyphs
         GlyphInfo loop_glyph_info = getGlyphInfo(current_codepoint);
-
-        if (currentX + (loop_glyph_info.advanceX * scale) > startX + maxLineWidth) {
+        
+        if (char_count_on_line > 0 && (currentX + (loop_glyph_info.advanceX * scale)) > (startX + maxLineWidth) ) {
             currentX = startX;
-            currentY -= lineHeight;
+            currentY -= lineHeight; 
+            char_count_on_line = 0;
         }
 
-        if (!(cursor_is_over_char && current_byte_iter_offset == cursorBytePos)) {
-            if (loop_glyph_info.vao != 0) {
+        if (!(layout.cursor_is_over_char && current_byte_render_offset == cursorBytePos)) {
+            if (loop_glyph_info.sdfTextureID != 0 && loop_glyph_info.sdfTextureWidth > 0 && loop_glyph_info.sdfTextureHeight > 0) {
+                glBindTexture(GL_TEXTURE_2D, loop_glyph_info.sdfTextureID);
+
+                float quad_world_width = (float)loop_glyph_info.sdfTextureWidth * scale;
+                float quad_world_height = (float)loop_glyph_info.sdfTextureHeight * scale;
+
+                float actualPosX = currentX + ((float)loop_glyph_info.bitmap_left - sdf_padding) * scale;
+                float actualPosY = currentY + ((float)loop_glyph_info.bitmap_top + sdf_padding) * scale - quad_world_height;
+                
                 GLfloat transformMatrix[16] = {
-                    scale, 0.0f,  0.0f, 0.0f,
-                    0.0f,  scale, 0.0f, 0.0f,
-                    0.0f,  0.0f,  1.0f, 0.0f,
-                    currentX, currentY, 0.0f, 1.0f
+                    quad_world_width, 0.0f,            0.0f, 0.0f,
+                    0.0f,             quad_world_height, 0.0f, 0.0f,
+                    0.0f,             0.0f,            1.0f, 0.0f,
+                    actualPosX,       actualPosY,      0.0f, 1.0f
                 };
                 glUniformMatrix4fv(transformLoc, 1, GL_FALSE, transformMatrix);
-                glBindVertexArray(loop_glyph_info.vao);
-                glDrawElements(GL_TRIANGLES, loop_glyph_info.indexCount, GL_UNSIGNED_INT, 0);
-                glBindVertexArray(0);
+                glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
             }
         }
+        
         currentX += loop_glyph_info.advanceX * scale;
-        current_byte_iter_offset += char_byte_length;
+        char_count_on_line++;
+        current_byte_render_offset += char_byte_length; 
     }
+    
+    // --- Renderizado del Cursor y Carácter Sobre el Cursor ---
+    float cursorBackgroundColor[3] = {0.85f, 0.85f, 0.85f}; 
+    float textOnCursorColor[3] = {0.1f, 0.1f, 0.1f};   
 
-    // --- BUCLE 2: Dibujar el cursor y el carácter invertido si aplica ---
-    // Use real getGlyphInfo for block glyph
-    GlyphInfo block_glyph_info = getGlyphInfo(0x2588); // '█'
+    float cursorPenX = layout.cursor_pos.x;
+    float cursorPenY = layout.cursor_pos.y;
 
-    if (block_glyph_info.vao != 0) {
-        glUniform3fv(colorLoc, 1, cursorBackgroundColor);
+    GlyphInfo block_glyph_info = getGlyphInfo(0x2588); 
+
+    if (block_glyph_info.sdfTextureID != 0 && block_glyph_info.sdfTextureWidth > 0 && block_glyph_info.sdfTextureHeight > 0) {
+        // Para el fondo del cursor, podrías querer desactivar temporalmente efectos como el contorno o sombra,
+        // o usar un color base simple para el "textColor" del bloque.
+        // Aquí, simplemente cambiamos el color base.
+        glUniform3fv(colorLoc, 1, cursorBackgroundColor); 
+        // Si tienes efectos como contorno/sombra activos globalmente y no los quieres para el bloque del cursor:
+        // if (enableOutlineLoc != -1) glUniform1i(enableOutlineLoc, false);
+        // if (enableShadowLoc != -1) glUniform1i(enableShadowLoc, false);
+
+
+        float quad_w_cursor_bg = (float)block_glyph_info.sdfTextureWidth * scale;
+        float quad_h_cursor_bg = (float)block_glyph_info.sdfTextureHeight * scale;
+        
+        float actualPosX_cursor_bg = cursorPenX + ((float)block_glyph_info.bitmap_left - sdf_padding) * scale;
+        float actualPosY_cursor_bg = cursorPenY + ((float)block_glyph_info.bitmap_top + sdf_padding) * scale - quad_h_cursor_bg;
+
         GLfloat cursorBgTransformMatrix[16] = {
-            scale, 0.0f,  0.0f, 0.0f,
-            0.0f,  scale, 0.0f, 0.0f,
-            0.0f,  0.0f,  1.0f, 0.0f,
-            cursorRenderX, cursorRenderY, 0.0f, 1.0f
+            quad_w_cursor_bg, 0.0f,               0.0f, 0.0f,
+            0.0f,             quad_h_cursor_bg,   0.0f, 0.0f,
+            0.0f,             0.0f,               1.0f, 0.0f,
+            actualPosX_cursor_bg, actualPosY_cursor_bg, 0.0f, 1.0f
         };
         glUniformMatrix4fv(transformLoc, 1, GL_FALSE, cursorBgTransformMatrix);
-        glBindVertexArray(block_glyph_info.vao);
-        glDrawElements(GL_TRIANGLES, block_glyph_info.indexCount, GL_UNSIGNED_INT, 0);
+        
+        glBindTexture(GL_TEXTURE_2D, block_glyph_info.sdfTextureID);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
 
-        if (cursor_is_over_char && glyph_info_under_cursor.vao != 0) { // Check VAO of the actual GlyphInfo for char under cursor
-            glUniform3fv(colorLoc, 1, textOnCursorColor);
-             GLfloat charOnCursorTransformMatrix[16] = {
-                scale, 0.0f,  0.0f, 0.0f,
-                0.0f,  scale, 0.0f, 0.0f,
-                0.0f,  0.0f,  1.0f, 0.0f,
-                cursorRenderX, cursorRenderY, 0.0f, 1.0f
+        // Restaurar configuración de efectos si la cambiaste para el bloque del cursor
+        // if (enableOutlineLoc != -1) glUniform1i(enableOutlineLoc, G_ENABLE_OUTLINE);
+        // if (enableShadowLoc != -1) glUniform1i(enableShadowLoc, G_ENABLE_SHADOW);
+    }
+
+    if (layout.cursor_is_over_char) {
+        GlyphInfo char_on_cursor_info = getGlyphInfo(layout.codepoint_under_cursor);
+
+        if (char_on_cursor_info.sdfTextureID != 0 && char_on_cursor_info.sdfTextureWidth > 0 && char_on_cursor_info.sdfTextureHeight > 0) {
+            glUniform3fv(colorLoc, 1, textOnCursorColor); // colorLoc es el "textColor" base del shader
+
+            float quad_w_char_on_cursor = (float)char_on_cursor_info.sdfTextureWidth * scale;
+            float quad_h_char_on_cursor = (float)char_on_cursor_info.sdfTextureHeight * scale;
+            
+            float actualPosX_char_on_cursor = cursorPenX + ((float)char_on_cursor_info.bitmap_left - sdf_padding) * scale;
+            float actualPosY_char_on_cursor = cursorPenY + ((float)char_on_cursor_info.bitmap_top + sdf_padding) * scale - quad_h_char_on_cursor;
+
+            GLfloat charOnCursorTransformMatrix[16] = {
+                quad_w_char_on_cursor, 0.0f,                     0.0f, 0.0f,
+                0.0f,                  quad_h_char_on_cursor,    0.0f, 0.0f,
+                0.0f,                  0.0f,                     1.0f, 0.0f,
+                actualPosX_char_on_cursor, actualPosY_char_on_cursor, 0.0f, 1.0f
             };
             glUniformMatrix4fv(transformLoc, 1, GL_FALSE, charOnCursorTransformMatrix);
-            glBindVertexArray(glyph_info_under_cursor.vao); // Use the VAO from the (potentially reconstructed) GlyphInfo
-            glDrawElements(GL_TRIANGLES, glyph_info_under_cursor.indexCount, GL_UNSIGNED_INT, 0);
+
+            glBindTexture(GL_TEXTURE_2D, char_on_cursor_info.sdfTextureID);
+            glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         }
     }
-    glBindVertexArray(0);
 
+    glBindTexture(GL_TEXTURE_2D, 0); 
+    glBindVertexArray(0);            
+    checkOpenGLError("Before glutSwapBuffers");
     glutSwapBuffers();
+    checkOpenGLError("After glutSwapBuffers");
 #else
-    // renderText should not be called in renderer_test context, which tests calculateTextLayout.
-    // If called, it's unexpected.
-    (void)shaderProgramID; // Suppress unused warnings
-    (void)text;
-    (void)cursorBytePos;
-    // fprintf(stderr, "UNIT_TESTING_WARNING: renderText called in renderer_test context.\n");
+    (void)shaderProgramID; (void)text; (void)cursorBytePos;
 #endif
 }

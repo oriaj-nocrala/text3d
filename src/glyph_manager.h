@@ -8,12 +8,19 @@
 #define HASH_TABLE_SIZE 256 // Size of the hash table, can be adjusted
 
 typedef struct {
-    GLuint vao;
-    GLuint vbo;
-    GLuint ebo;
-    GLsizei indexCount;
-    float advanceX;
-    // Add other metrics if needed (bearingX, bearingY, glyphWidth, glyphHeight)
+    GLuint vao;         // No se usa para SDF puro si globalQuadVAO se usa para todos
+    GLuint vbo;         // No se usa para SDF puro
+    GLuint ebo;         // No se usa para SDF puro
+    GLsizei indexCount; // No se usa para SDF puro
+
+    float advanceX;         // Avance horizontal en píxeles (unidades FT / 64.0f)
+    int bitmap_left;        // Desplazamiento X desde el origen del pen al borde izq. del bitmap (píxeles)
+    int bitmap_top;         // Desplazamiento Y desde la línea base al borde sup. del bitmap (píxeles)
+
+    // SDF Texture data
+    GLuint sdfTextureID;
+    int sdfTextureWidth;    // Ancho de la textura SDF (con padding, en píxeles)
+    int sdfTextureHeight;   // Alto de la textura SDF (con padding, en píxeles)
 } GlyphInfo;
 
 // Node for the hash table (linked list for collision resolution)

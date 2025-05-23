@@ -5,6 +5,7 @@ CC = gcc
 SRC_DIR = src
 BUILD_DIR = build
 EXTERNAL_DIR = external
+SDF_GENERATOR_DIR = external/sdf_generator
 TESS_INC = $(EXTERNAL_DIR)/libtess2-1.0.2/Include
 TESS_LIB_DIR = $(EXTERNAL_DIR)/libtess2-1.0.2/lib
 TEST_SRC_DIR = tests
@@ -12,7 +13,7 @@ TEST_SRC_DIR = tests
 
 # Define flags de compilación
 # CFLAGS para la aplicación principal y para módulos de src/ cuando se compilan para la app
-APP_CFLAGS = -I$(SRC_DIR) -I$(TEST_SRC_DIR) -I$(TESS_INC) $(shell pkg-config --cflags freetype2 || echo "") $(shell pkg-config --cflags glut || echo "") -I/usr/include/GL -Wall -Wextra -g -std=c99 -pthread -Wno-unused-parameter
+APP_CFLAGS = -I$(SRC_DIR) -I$(TEST_SRC_DIR) -I$(TESS_INC) -I$(SDF_GENERATOR_DIR) $(shell pkg-config --cflags freetype2 || echo "") $(shell pkg-config --cflags glut || echo "") -I/usr/include/GL -Wall -Wextra -g -std=c99 -pthread -Wno-unused-parameter
 # CFLAGS para compilar cualquier cosa que forme parte de un ejecutable de PRUEBA
 # Esto incluye los archivos *_test.c y los módulos de src/ que se recompilan para pruebas
 TEST_CFLAGS = $(APP_CFLAGS) -DUNIT_TESTING
@@ -26,9 +27,14 @@ STATIC_TESS_LIB = $(TESS_LIB_DIR)/libtess2.a
 
 
 # Define los archivos fuente (.c) buscando en SRC_DIR
-APP_SRCS = $(wildcard $(SRC_DIR)/*.c)
+APP_SRCS = $(wildcard $(SRC_DIR)/*.c) $(SDF_GENERATOR_DIR)/sdf_generator.c
 # Genera los nombres de los archivos objeto (.o) para la APP en BUILD_DIR (o un subdir como build/app_obj)
-APP_OBJS = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/app_obj/%.o,$(APP_SRCS))
+# APP_OBJS ahora debe manejar múltiples directorios base para los fuentes.
+# Para $(SRC_DIR)/%.c -> $(BUILD_DIR)/app_obj/%.o
+# Para $(SDF_GENERATOR_DIR)/%.c -> $(BUILD_DIR)/app_obj/%.o (o un subdirectorio si se prefiere, ej. app_obj/external)
+APP_OBJS_SRC = $(patsubst $(SRC_DIR)/%.c,$(BUILD_DIR)/app_obj/%.o,$(filter $(SRC_DIR)/%.c,$(APP_SRCS)))
+APP_OBJS_SDF = $(patsubst $(SDF_GENERATOR_DIR)/%.c,$(BUILD_DIR)/app_obj/%.o,$(filter $(SDF_GENERATOR_DIR)/%.c,$(APP_SRCS)))
+APP_OBJS = $(APP_OBJS_SRC) $(APP_OBJS_SDF)
 
 # Define los archivos fuente de test (.c)
 TEST_FREETYPE_SRC = $(TEST_SRC_DIR)/freetype_handler_test.c
@@ -136,6 +142,11 @@ $(TEST_RENDERER_EXEC): $(RENDERER_LAYOUT_TEST_DEPS) | $(BUILD_DIR) $(TEST_OBJS_D
 # --- Reglas de Compilación ---
 # Regla patrón para compilar archivos .c de SRC_DIR para la APLICACIÓN
 $(BUILD_DIR)/app_obj/%.o: $(SRC_DIR)/%.c | $(APP_OBJ_DIR_CREATE)
+	$(CC) $(APP_CFLAGS) -c $< -o $@
+
+# Nueva regla para compilar archivos .c de SDF_GENERATOR_DIR para la APLICACIÓN
+# Esto asume que los objetos de sdf_generator van al mismo directorio $(BUILD_DIR)/app_obj
+$(BUILD_DIR)/app_obj/%.o: $(SDF_GENERATOR_DIR)/%.c | $(APP_OBJ_DIR_CREATE)
 	$(CC) $(APP_CFLAGS) -c $< -o $@
 
 # Regla patrón para compilar archivos _test.c (los que tienen el main de minunit)

@@ -1,4 +1,5 @@
 #include "utils.h"
+#include <GL/glu.h>
 
 // Implementación del decodificador UTF-8
 FT_ULong utf8_to_codepoint(const char** s_ptr) {
@@ -46,4 +47,16 @@ FT_ULong utf8_to_codepoint(const char** s_ptr) {
         *s_ptr = (const char*)(s + 1); // Avanzar un byte para intentar recuperarse
     }
     return codepoint;
+}
+
+void checkOpenGLError(const char* stage_name) {
+    GLenum err;
+    while ((err = glGetError()) != GL_NO_ERROR) {
+        fprintf(stderr, "OpenGL error AT [%s]: %u", stage_name, err);
+        // const GLubyte* errString = gluErrorString(err); // Descomenta si enlazas con GLU
+        // if (errString) {
+        //     fprintf(stderr, " (%s)", errString);
+        // }
+        fprintf(stderr, "\n");
+    }
 }
